@@ -1,257 +1,437 @@
-import React, { createContext, useState, useEffect } from 'react';
-import { initialPlayers, initialTeams, businessRules } from '../data/mockData';
+import React, { createContext, useState, useEffect, useCallback } from 'react';
+import { apiFetch, apiUpload } from '../api/api';
+
+const businessRules = {
+  teamSizeLimit: 10,
+  minBeginners: 2,
+  minFemales: 2,
+  purseLimit: 100000,
+  bidIncrement: 500,
+};
 
 export const AppContext = createContext();
 
 export const AppProvider = ({ children }) => {
-  // Load initial state from localStorage or use defaults
-  const [city, setCity] = useState(() => localStorage.getItem('wbp_city') || '');
-  const [role, setRole] = useState(() => localStorage.getItem('wbp_role') || '');
-  
-  const [players, setPlayers] = useState(() => {
-    const saved = localStorage.getItem('wbp_players');
-    return saved ? JSON.parse(saved) : initialPlayers;
-  });
+  // Auth state
+  const [token, setToken]   = useState(() => localStorage.getItem('wbp_token') || '');
+  const [city, setCity]     = useState(() => localStorage.getItem('wbp_city')  || '');
+  const [role, setRole]     = useState(() => localStorage.getItem('wbp_role')  || '');
+  const [username, setUsername] = useState(() => localStorage.getItem('wbp_username') || '');
 
-  const [teams, setTeams] = useState(() => {
-    const saved = localStorage.getItem('wbp_teams');
-    return saved ? JSON.parse(saved) : initialTeams;
-  });
+  // Data state
+  const [players, setPlayers] = useState([]);
+  const [teams, setTeams]     = useState([]);
 
+  // Auction UI state (managed client-side for performance)
   const [currentAuctionIndex, setCurrentAuctionIndex] = useState(0);
-  const [currentBid, setCurrentBid] = useState(0);
-  const [highestBidderTeam, setHighestBidderTeam] = useState(null);
+  const [currentBid, setCurrentBid]                   = useState(0);
+  const [bidHistory, setBidHistory]                   = useState([]); // Store local bid increments for revert
+  const [highestBidderTeam, setHighestBidderTeam]     = useState(null); // No longer needed strictly for UI during bid, but kept for markSold if needed
+  const [highestBidderTeamId, setHighestBidderTeamId] = useState(null);
 
-  // Sync state to localStorage
-  useEffect(() => {
-    localStorage.setItem('wbp_city', city);
+  // Auction Filters
+  const [auctionSkillFilter, setAuctionSkillFilter] = useState('All');
+  const [auctionGenderFilter, setAuctionGenderFilter] = useState('All');
+
+  // Loading / error
+  const [loading, setLoading] = useState(false);
+
+  // ---- Persist auth to localStorage ----
+  useEffect(() => { localStorage.setItem('wbp_token', token); }, [token]);
+  useEffect(() => { localStorage.setItem('wbp_city',  city);  }, [city]);
+  useEffect(() => { localStorage.setItem('wbp_role',  role);  }, [role]);
+
+  // ---- Fetch data when city is set ----
+  const refreshPlayers = useCallback(async () => {
+    if (!city) return;
+    try {
+      const data = await apiFetch(`/api/${city}/players`);
+      setPlayers(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to load players:', err.message);
+    }
+  }, [city]);
+
+  const refreshTeams = useCallback(async () => {
+    if (!city) return;
+    try {
+      const data = await apiFetch(`/api/${city}/teams`);
+      setTeams(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to load teams:', err.message);
+    }
   }, [city]);
 
   useEffect(() => {
-    localStorage.setItem('wbp_role', role);
-  }, [role]);
+    if (city && (token || role === 'guest')) {
+      refreshPlayers();
+      refreshTeams();
+    }
+  }, [city, token, role, refreshPlayers, refreshTeams]);
 
+  // ---- Auto-refresh for guest mode (polling every 10s) ----
   useEffect(() => {
-    localStorage.setItem('wbp_players', JSON.stringify(players));
-  }, [players]);
+    if (role !== 'guest' || !city) return;
+    const interval = setInterval(() => {
+      refreshPlayers();
+      refreshTeams();
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [role, city, refreshPlayers, refreshTeams]);
 
-  useEffect(() => {
-    localStorage.setItem('wbp_teams', JSON.stringify(teams));
-  }, [teams]);
-
-  // Select City & Reset role / auction index
+  // ---- Auth actions ----
   const selectCity = (selectedCity) => {
     setCity(selectedCity);
     setCurrentAuctionIndex(0);
     setCurrentBid(0);
+    setBidHistory([]);
     setHighestBidderTeam(null);
+    setHighestBidderTeamId(null);
   };
 
-  // Select Role
   const selectRole = (selectedRole) => {
     setRole(selectedRole);
   };
 
-  // Add Player
-  const addPlayer = (playerData) => {
-    const newPlayer = {
-      id: `p_${Date.now()}`,
-      status: 'unsold',
-      ...playerData
-    };
+  /**
+   * Login via backend API. Stores JWT and user info.
+   */
+  const login = async (usernameInput, password) => {
+    const resp = await apiFetch('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username: usernameInput, password }),
+    });
+    setToken(resp.token);
+    setRole(resp.role);
+    setCity(resp.city);
+    setUsername(resp.username);
+    localStorage.setItem('wbp_token',    resp.token);
+    localStorage.setItem('wbp_role',     resp.role);
+    localStorage.setItem('wbp_city',     resp.city);
+    localStorage.setItem('wbp_username', resp.username);
+    return resp;
+  };
+
+  const logout = () => {
+    setToken('');
+    setRole('');
+    setCity('');
+    setUsername('');
+    setPlayers([]);
+    setTeams([]);
+    localStorage.removeItem('wbp_token');
+    localStorage.removeItem('wbp_role');
+    localStorage.removeItem('wbp_city');
+    localStorage.removeItem('wbp_username');
+  };
+
+  // ---- Player CRUD ----
+  const addPlayer = async (playerData) => {
+    const newPlayer = await apiFetch(`/api/${city}/players`, {
+      method: 'POST',
+      body: JSON.stringify(playerData),
+    });
     setPlayers(prev => [...prev, newPlayer]);
+    return newPlayer;
   };
 
-  // Create Team
-  const createTeam = (teamData) => {
-    const newTeam = {
-      purseRemaining: businessRules.purseLimit,
-      players: [],
-      totalPlayers: 0,
-      femalePlayers: 0,
-      beginnerPlayers: 0,
-      ...teamData,
-      location: city // Bind to active city
-    };
+  const importPlayersFromExcel = async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const newPlayers = await apiUpload(`/api/${city}/players/import`, formData);
+    setPlayers(prev => [...prev, ...newPlayers]);
+    return newPlayers;
+  };
+
+  const updatePlayer = async (id, playerData) => {
+    const updated = await apiFetch(`/api/${city}/players/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(playerData),
+    });
+    setPlayers(prev => prev.map(p => p.id === id ? updated : p));
+    return updated;
+  };
+
+  const deletePlayer = async (id) => {
+    await apiFetch(`/api/${city}/players/${id}`, { method: 'DELETE' });
+    setPlayers(prev => prev.filter(p => p.id !== id));
+    // Also update teams in case this player was sold to a team
+    setTeams(prev => prev.map(t => {
+      const hadPlayer = t.players?.some(p => p.id === id);
+      if (!hadPlayer) return t;
+      const removedPlayer = t.players.find(p => p.id === id);
+      return {
+        ...t,
+        players: t.players.filter(p => p.id !== id),
+        totalPlayers: Math.max(0, (t.totalPlayers || 0) - 1),
+        femalePlayers: Math.max(0, (t.femalePlayers || 0) - (removedPlayer?.gender === 'Female' ? 1 : 0)),
+        beginnerPlayers: Math.max(0, (t.beginnerPlayers || 0) - (removedPlayer?.skillLevel === 'Beginner' ? 1 : 0)),
+        purseRemaining: (t.purseRemaining || 0) + (removedPlayer?.soldPrice || removedPlayer?.basePrice || 0),
+      };
+    }));
+  };
+
+  // ---- Team CRUD ----
+  const createTeam = async (teamData) => {
+    const newTeam = await apiFetch(`/api/${city}/teams`, {
+      method: 'POST',
+      body: JSON.stringify(teamData),
+    });
     setTeams(prev => [...prev, newTeam]);
+    return newTeam;
   };
 
-  // Get active auction queue for selected city
-  // Order: Beginner first, Intermediate second, Advanced last
-  const getAuctionQueue = () => {
-    const cityPlayers = players.filter(p => p.location.toLowerCase() === city.toLowerCase() && p.status !== 'sold');
-    
-    const skillOrder = { 'Beginner': 1, 'Intermediate': 2, 'Advanced': 3 };
-    
+  const updateTeam = async (id, teamData) => {
+    const updated = await apiFetch(`/api/${city}/teams/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(teamData),
+    });
+    setTeams(prev => prev.map(t => t.id === id ? updated : t));
+    return updated;
+  };
+
+  const deleteTeam = async (id) => {
+    // Optimistically find released players before deleting
+    const team = teams.find(t => t.id === id);
+    await apiFetch(`/api/${city}/teams/${id}`, { method: 'DELETE' });
+    setTeams(prev => prev.filter(t => t.id !== id));
+    // Mark the team's players as UNSOLD optimistically
+    if (team?.players?.length) {
+      const releasedIds = new Set(team.players.map(p => p.id));
+      setPlayers(prev => prev.map(p =>
+        releasedIds.has(p.id)
+          ? { ...p, status: 'UNSOLD', soldPrice: null, soldTeamId: null, soldTeamName: null }
+          : p
+      ));
+    }
+  };
+
+  const releasePlayerFromTeam = async (teamId, playerId) => {
+    const updatedTeam = await apiFetch(`/api/${city}/teams/${teamId}/release-player`, {
+      method: 'POST',
+      body: JSON.stringify({ playerId }),
+    });
+
+    // Ensure the released player is removed from the returned team data
+    let finalTeam = updatedTeam;
+    if (finalTeam.players && finalTeam.players.some(p => p.id === playerId)) {
+      const removedPlayer = finalTeam.players.find(p => p.id === playerId);
+      finalTeam = {
+        ...finalTeam,
+        players: finalTeam.players.filter(p => p.id !== playerId),
+        totalPlayers: Math.max(0, finalTeam.totalPlayers - 1),
+        purseRemaining: finalTeam.purseRemaining + (removedPlayer.soldPrice || removedPlayer.basePrice || 0)
+      };
+    }
+
+    // Optimistic update: update team in place
+    setTeams(prev => prev.map(t => t.id === teamId ? finalTeam : t));
+    // Optimistic update: mark the player as UNSOLD locally
+    setPlayers(prev => prev.map(p =>
+      p.id === playerId
+        ? { ...p, status: 'UNSOLD', soldPrice: null, soldTeamId: null, soldTeamName: null }
+        : p
+    ));
+    return finalTeam;
+  };
+
+  // ---- Auction queue ----
+  const getAuctionQueue = useCallback(() => {
+    let cityPlayers = players.filter(
+      p => p.location?.toLowerCase() === city?.toLowerCase() && p.status === 'UNSOLD'
+    );
+
+    if (auctionSkillFilter !== 'All') {
+      cityPlayers = cityPlayers.filter(p => p.skillLevel === auctionSkillFilter);
+    }
+    if (auctionGenderFilter !== 'All') {
+      cityPlayers = cityPlayers.filter(p => p.gender === auctionGenderFilter);
+    }
+
+    const skillOrder = { Beginner: 1, Intermediate: 2, Advanced: 3 };
     return cityPlayers.sort((a, b) => {
       const orderA = skillOrder[a.skillLevel] || 99;
       const orderB = skillOrder[b.skillLevel] || 99;
       if (orderA !== orderB) return orderA - orderB;
-      return a.fullName.localeCompare(b.fullName);
+      // Female first within same skill
+      if (a.gender !== b.gender) return a.gender === 'Female' ? -1 : 1;
+      return a.fullName?.localeCompare(b.fullName);
     });
-  };
+  }, [players, city, auctionSkillFilter, auctionGenderFilter]);
 
-  const auctionQueue = getAuctionQueue();
-  const activePlayer = auctionQueue[currentAuctionIndex] || null;
+  const auctionQueue  = getAuctionQueue();
+  const activePlayer  = auctionQueue[currentAuctionIndex] || null;
 
-  // Initialize bidding when active player changes
+  // Safety: clamp index when queue shrinks (e.g., after selling a player)
+  // This ensures skipped players always cycle back into view.
+  useEffect(() => {
+    if (auctionQueue.length === 0) {
+      if (currentAuctionIndex !== 0) setCurrentAuctionIndex(0);
+    } else if (currentAuctionIndex >= auctionQueue.length) {
+      setCurrentAuctionIndex(0);
+    }
+  }, [auctionQueue.length, currentAuctionIndex]);
+
   useEffect(() => {
     if (activePlayer) {
       setCurrentBid(activePlayer.basePrice);
+      setBidHistory([]);
       setHighestBidderTeam(null);
+      setHighestBidderTeamId(null);
     } else {
       setCurrentBid(0);
+      setBidHistory([]);
       setHighestBidderTeam(null);
+      setHighestBidderTeamId(null);
     }
-  }, [activePlayer, currentAuctionIndex]);
+  }, [activePlayer?.id, currentAuctionIndex]);
 
-  // Increase Bid (+500)
-  const increaseBid = (teamName) => {
-    if (!activePlayer) return;
-    
-    // Check if team exists
-    const team = teams.find(t => t.teamName === teamName && t.location.toLowerCase() === city.toLowerCase());
-    if (!team) return { success: false, message: "Team not found." };
-
-    const nextBid = highestBidderTeam ? currentBid + businessRules.bidIncrement : activePlayer.basePrice;
-
-    // Check if team has enough purse
-    if (team.purseRemaining < nextBid) {
-      return { success: false, message: `Insufficient purse! Team has only ${team.purseRemaining} points.` };
-    }
-
-    // Check team size compliance
-    if (team.totalPlayers >= businessRules.teamSizeLimit) {
-      return { success: false, message: `Team is already full (${businessRules.teamSizeLimit} players).` };
-    }
-
-    setCurrentBid(nextBid);
-    setHighestBidderTeam(teamName);
-    return { success: true };
+  // ---- Bidding (Local State Only) ----
+  const increaseBid = async (amount = 500) => {
+    if (!activePlayer) return { success: false, message: 'No active player.' };
+    setBidHistory(prev => [...prev, currentBid]);
+    setCurrentBid(prev => prev + amount);
+    return { success: true, bidAmount: currentBid + amount };
   };
 
-  // Pass Player
-  const passPlayer = () => {
+  const revertLastBid = async () => {
     if (!activePlayer) return;
-
-    setPlayers(prev => prev.map(p => {
-      if (p.id === activePlayer.id) {
-        return { ...p, status: 'passed' };
-      }
-      return p;
-    }));
-
-    // Move to next player in queue
-    nextPlayer();
+    if (bidHistory.length > 0) {
+      const last = bidHistory[bidHistory.length - 1];
+      setCurrentBid(last);
+      setBidHistory(prev => prev.slice(0, -1));
+    }
   };
 
-  // Mark Sold
-  const markSold = () => {
-    if (!activePlayer) return { success: false, message: "No active player." };
-    if (!highestBidderTeam) return { success: false, message: "No bid placed yet. Cannot mark sold." };
-
-    const teamName = highestBidderTeam;
-    const finalPrice = currentBid;
-
-    // Double check team capacity and purse again
-    const teamIndex = teams.findIndex(t => t.teamName === teamName && t.location.toLowerCase() === city.toLowerCase());
-    if (teamIndex === -1) return { success: false, message: "Bidding team not found." };
-    
-    const team = teams[teamIndex];
-    if (team.purseRemaining < finalPrice) {
-      return { success: false, message: "Bidding team has insufficient purse balance." };
+  const passPlayer = async () => {
+    if (!activePlayer) return;
+    try {
+      const passedPlayerId = activePlayer.id;
+      await apiFetch(`/api/${city}/auction/pass`, {
+        method: 'POST',
+        body: JSON.stringify({ playerId: passedPlayerId }),
+      });
+      // Optimistically mark player as PASSED locally
+      setPlayers(prev => prev.map(p =>
+        p.id === passedPlayerId ? { ...p, status: 'PASSED' } : p
+      ));
+    } catch (err) {
+      console.error('Pass failed:', err.message);
     }
-    if (team.totalPlayers >= businessRules.teamSizeLimit) {
-      return { success: false, message: "Bidding team roster is full." };
+  };
+
+  const markSold = async (teamId) => {
+    if (!activePlayer || !teamId) {
+      return { success: false, message: 'Invalid player or team selected.' };
     }
+    try {
+      const soldPlayerId = activePlayer.id;
+      const soldPrice = currentBid;
+      const soldPlayer = activePlayer;
 
-    // Update Player Status
-    setPlayers(prev => prev.map(p => {
-      if (p.id === activePlayer.id) {
-        return { 
-          ...p, 
-          status: 'sold', 
-          soldPrice: finalPrice, 
-          soldTeam: teamName 
-        };
-      }
-      return p;
-    }));
+      await apiFetch(`/api/${city}/auction/sell`, {
+        method: 'POST',
+        body: JSON.stringify({
+          playerId: soldPlayerId,
+          teamId: teamId,
+          finalPrice: soldPrice,
+        }),
+      });
 
-    // Update Team Roster and Purse
-    setTeams(prev => prev.map(t => {
-      if (t.teamName === teamName && t.location.toLowerCase() === city.toLowerCase()) {
-        const isFemale = activePlayer.gender.toLowerCase() === 'female';
-        const isBeginner = activePlayer.skillLevel.toLowerCase() === 'beginner';
+      // Optimistic update: mark player as SOLD locally
+      setPlayers(prev => prev.map(p =>
+        p.id === soldPlayerId
+          ? { ...p, status: 'SOLD', soldPrice: soldPrice, soldTeamId: teamId }
+          : p
+      ));
 
-        const updatedPlayers = [...t.players, activePlayer];
-        
+      // Optimistic update: update team purse and counters locally
+      setTeams(prev => prev.map(t => {
+        if (t.id !== teamId) return t;
+        const isFemale = soldPlayer.gender === 'Female';
+        const isBeginner = soldPlayer.skillLevel === 'Beginner';
         return {
           ...t,
-          purseRemaining: t.purseRemaining - finalPrice,
-          players: updatedPlayers,
-          totalPlayers: updatedPlayers.length,
-          femalePlayers: t.femalePlayers + (isFemale ? 1 : 0),
-          beginnerPlayers: t.beginnerPlayers + (isBeginner ? 1 : 0)
+          purseRemaining: (t.purseRemaining || 0) - soldPrice,
+          totalPlayers: (t.totalPlayers || 0) + 1,
+          femalePlayers: (t.femalePlayers || 0) + (isFemale ? 1 : 0),
+          beginnerPlayers: (t.beginnerPlayers || 0) + (isBeginner ? 1 : 0),
+          players: [...(t.players || []), { ...soldPlayer, status: 'SOLD', soldPrice: soldPrice }],
         };
-      }
-      return t;
-    }));
+      }));
 
-    // Reset bidding and index will naturally adjust as queue shrinks, but let's keep it safe
-    setHighestBidderTeam(null);
-    
-    // If we were at the end of the queue, move index down or reset to 0
-    if (currentAuctionIndex >= auctionQueue.length - 1) {
-      setCurrentAuctionIndex(0);
+      setHighestBidderTeam(null);
+      setHighestBidderTeamId(null);
+
+      // The queue will shrink by 1 after the sold player is removed.
+      // The clamping useEffect above will auto-correct if index goes out of bounds.
+      // No manual index adjustment needed here.
+      return { success: true };
+    } catch (err) {
+      return { success: false, message: err.message };
     }
-
-    return { success: true };
   };
 
-  // Next Player
   const nextPlayer = () => {
     const queue = getAuctionQueue();
     if (queue.length === 0) return;
-    
     setCurrentAuctionIndex(prev => {
       const nextIdx = prev + 1;
       return nextIdx >= queue.length ? 0 : nextIdx;
     });
   };
 
-  // Reset entire database to defaults
-  const resetDatabase = () => {
-    setPlayers(initialPlayers);
-    setTeams(initialTeams);
-    setCurrentAuctionIndex(0);
-    setCurrentBid(0);
-    setHighestBidderTeam(null);
-    localStorage.removeItem('wbp_players');
-    localStorage.removeItem('wbp_teams');
+  const reAuction = async () => {
+    try {
+      await apiFetch(`/api/${city}/auction/re-auction`, { method: 'POST' });
+      // Optimistic: mark all PASSED players as UNSOLD locally
+      setPlayers(prev => prev.map(p =>
+        p.location?.toLowerCase() === city?.toLowerCase() && p.status === 'PASSED'
+          ? { ...p, status: 'UNSOLD', soldPrice: null, soldTeamId: null, soldTeamName: null }
+          : p
+      ));
+      setCurrentAuctionIndex(0);
+    } catch (err) {
+      console.error('Re-auction failed:', err.message);
+    }
   };
+
 
   return (
     <AppContext.Provider value={{
-      city,
-      role,
-      players,
-      teams,
+      // Auth
+      token, city, role, username,
+      login, logout,
+      // Data
+      players, teams,
+      refreshPlayers, refreshTeams,
       businessRules,
+      // Auction
       activePlayer,
       currentBid,
       highestBidderTeam,
+      highestBidderTeamId,
       auctionQueue,
       currentAuctionIndex,
-      selectCity,
-      selectRole,
-      addPlayer,
-      createTeam,
+      auctionSkillFilter,
+      setAuctionSkillFilter,
+      auctionGenderFilter,
+      setAuctionGenderFilter,
+      // Player CRUD
+      addPlayer, importPlayersFromExcel, updatePlayer, deletePlayer,
+      // Team CRUD
+      createTeam, updateTeam, deleteTeam, releasePlayerFromTeam,
+      // Auction actions
       increaseBid,
+      revertLastBid,
       passPlayer,
       markSold,
       nextPlayer,
-      resetDatabase
+      reAuction,
+      selectCity,
+      selectRole,
+      // UI
+      loading,
     }}>
       {children}
     </AppContext.Provider>

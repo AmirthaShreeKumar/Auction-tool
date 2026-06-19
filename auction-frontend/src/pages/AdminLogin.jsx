@@ -6,28 +6,26 @@ import { Lock, User, ChevronLeft, AlertCircle } from 'lucide-react';
 const AdminLogin = () => {
   const navigate = useNavigate();
   const { city } = useParams();
-  const { selectRole } = useContext(AppContext);
+  const { selectRole, login } = useContext(AppContext);
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
-    // Mock authentication check
-    setTimeout(() => {
-      if (username.trim().toLowerCase() === 'admin' && password === 'admin123') {
-        selectRole('admin');
-        navigate(`/dashboard/${city}/admin`);
-      } else {
-        setError('Invalid username or password. (Hint: admin / admin123)');
-        setLoading(false);
-      }
-    }, 600);
+    try {
+      const resp = await login(username.trim(), password);
+      selectRole(resp.role);
+      navigate(`/dashboard/${resp.city.toLowerCase()}/${resp.role}`);
+    } catch (err) {
+      setError(err.message || 'Invalid username or password.');
+      setLoading(false);
+    }
   };
 
   const handleBack = () => {
@@ -157,26 +155,6 @@ const AdminLogin = () => {
               {loading ? 'Authenticating...' : 'Sign In'}
             </button>
           </form>
-
-          {/* Hint section */}
-          <div style={{
-            marginTop: '24px',
-            padding: '12px 16px',
-            background: 'rgba(255, 255, 255, 0.02)',
-            border: '1px solid var(--border-color)',
-            borderRadius: '8px',
-            fontSize: '0.8rem',
-            color: 'var(--color-text-muted)',
-            textAlign: 'center'
-          }}>
-            <span style={{ fontWeight: '600', color: 'var(--color-primary)' }}>Sandbox Credentials:</span>
-            <div style={{ marginTop: '4px' }}>
-              Username: <code style={{ color: 'white', padding: '2px 4px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px' }}>admin</code>
-            </div>
-            <div style={{ marginTop: '2px' }}>
-              Password: <code style={{ color: 'white', padding: '2px 4px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px' }}>admin123</code>
-            </div>
-          </div>
         </div>
       </div>
     </div>

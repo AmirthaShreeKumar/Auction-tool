@@ -1,25 +1,49 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { AppContext } from '../context/AppContext';
 import { Plus, UserPlus, Filter, X, Search } from 'lucide-react';
 
 const PlayersPage = () => {
   const { city, role } = useParams();
-  const { players, addPlayer } = useContext(AppContext);
+  const { players, addPlayer, importPlayersFromExcel, updatePlayer, deletePlayer } = useContext(AppContext);
 
-  // States
-  const [skillFilter, setSkillFilter] = useState('All');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showAddModal, setShowAddModal] = useState(false);
+  const [skillFilter, setSkillFilter]   = useState('All');
+  const [searchQuery, setSearchQuery]   = useState('');
+  const [showAddModal, setShowAddModal]   = useState(false);
+  const [selectedPlayer, setSelectedPlayer] = useState(null);
+  const [editingPlayer, setEditingPlayer] = useState(null);
+  const [toastMessage, setToastMessage] = useState(null);
+  const [uploadMode, setUploadMode] = useState('manual'); // 'manual' or 'excel'
+  const [excelFile, setExcelFile] = useState(null);
+
+  // Dismiss toast on any click anywhere on the page
+  useEffect(() => {
+    if (!toastMessage) return;
+    const dismiss = () => setToastMessage(null);
+    document.addEventListener('click', dismiss);
+    return () => document.removeEventListener('click', dismiss);
+  }, [toastMessage]);
+
+  // Reset modal image error when selected player changes
+  const [modalImgError, setModalImgError] = useState(false);
+  useEffect(() => {
+    setModalImgError(false);
+  }, [selectedPlayer?.id]);
   
   // Form States for Add Player
   const [wissenId, setWissenId] = useState('');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
+  const [mobileNumber, setMobileNumber] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
   const [gender, setGender] = useState('Male');
   const [skillLevel, setSkillLevel] = useState('Beginner');
   const [yearsOfExperience, setYearsOfExperience] = useState(1);
-  const [basePrice, setBasePrice] = useState(5000);
+  const [basePrice, setBasePrice] = useState(2000);
+  const [matchesPlayed, setMatchesPlayed] = useState('');
+  const [matchesWon, setMatchesWon] = useState('');
+  const [matchesLost, setMatchesLost] = useState('');
+  const [showStats, setShowStats] = useState(false);
 
   // Filter players by City
   const cityPlayers = players.filter(p => p.location.toLowerCase() === city.toLowerCase());
@@ -35,33 +59,128 @@ const PlayersPage = () => {
     p.wissenId.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!wissenId || !fullName || !email) {
-      alert("Please fill out all required fields.");
+      setToastMessage({ text: "Please fill out all required fields.", type: 'error' });
+      setTimeout(() => setToastMessage(null), 2000);
       return;
     }
 
-    addPlayer({
+    if (showStats) {
+      const played = parseInt(matchesPlayed) || 0;
+      const won = parseInt(matchesWon) || 0;
+      const lost = parseInt(matchesLost) || 0;
+      if (played !== won + lost) {
+        setToastMessage({ text: "Total matches played must equal matches won + matches lost.", type: 'error' });
+        setTimeout(() => setToastMessage(null), 3000);
+        return;
+      }
+    }
+
+    const payload = {
       wissenId,
       fullName,
       email,
+      mobileNumber,
+      imageUrl,
       gender,
       skillLevel,
       yearsOfExperience: parseInt(yearsOfExperience),
       basePrice: parseInt(basePrice),
-      location: city // set location automatically
-    });
+      location: city,
+      matchesPlayed: showStats && matchesPlayed !== '' ? parseInt(matchesPlayed) : null,
+      matchesWon: showStats && matchesWon !== '' ? parseInt(matchesWon) : null,
+      matchesLost: showStats && matchesLost !== '' ? parseInt(matchesLost) : null,
+    };
 
-    // Reset Form & Close Modal
+    try {
+      if (editingPlayer) {
+        await updatePlayer(editingPlayer.id, payload);
+        setToastMessage({ text: `Player ${fullName} updated`, type: 'success' });
+        // Update selectedPlayer if it's currently showing
+        if (selectedPlayer && selectedPlayer.id === editingPlayer.id) {
+          setSelectedPlayer({ ...selectedPlayer, ...payload, stats: payload.matchesPlayed !== null ? { matchesPlayed: payload.matchesPlayed, matchesWon: payload.matchesWon, matchesLost: payload.matchesLost } : null });
+        }
+      } else {
+        await addPlayer(payload);
+        setToastMessage({ text: `Player ${fullName} added to ${city.toUpperCase()} draft`, type: 'success' });
+      }
+
+      setTimeout(() => setToastMessage(null), 1500);
+
+      // Reset Form & Close Modal
+      resetForm();
+      setShowAddModal(false);
+      setUploadMode('manual');
+      setExcelFile(null);
+    } catch (error) {
+      setToastMessage({ text: error.message || "Failed to save player", type: 'error' });
+      setTimeout(() => setToastMessage(null), 3000);
+    }
+  };
+
+  const handleExcelUpload = async (e) => {
+    e.preventDefault();
+    if (!excelFile) return;
+    try {
+      await importPlayersFromExcel(excelFile);
+      setToastMessage({ text: "Players imported successfully!", type: 'success' });
+      setTimeout(() => setToastMessage(null), 3000);
+      resetForm();
+      setShowAddModal(false);
+    } catch (error) {
+      setToastMessage({ text: error.message || "Failed to import players", type: 'error' });
+      setTimeout(() => setToastMessage(null), 3000);
+    }
+  };
+
+  const resetForm = () => {
     setWissenId('');
     setFullName('');
     setEmail('');
+    setMobileNumber('');
+    setImageUrl('');
     setGender('Male');
     setSkillLevel('Beginner');
     setYearsOfExperience(1);
-    setBasePrice(5000);
-    setShowAddModal(false);
+    setBasePrice(2000);
+    setMatchesPlayed('');
+    setMatchesWon('');
+    setMatchesLost('');
+    setShowStats(false);
+    setEditingPlayer(null);
+  };
+
+  const handleEditClick = (player) => {
+    setEditingPlayer(player);
+    setWissenId(player.wissenId);
+    setFullName(player.fullName);
+    setEmail(player.email);
+    setMobileNumber(player.mobileNumber || '');
+    setImageUrl(player.imageUrl || '');
+    setGender(player.gender);
+    setSkillLevel(player.skillLevel);
+    setYearsOfExperience(player.yearsOfExperience);
+    setBasePrice(player.basePrice);
+    setMatchesPlayed(player.stats ? player.stats.matchesPlayed : '');
+    setMatchesWon(player.stats ? player.stats.matchesWon : '');
+    setMatchesLost(player.stats ? player.stats.matchesLost : '');
+    setShowStats(!!player.stats);
+    setShowAddModal(true);
+  };
+
+  const handleDeleteClick = async (player) => {
+    if (player.status?.toLowerCase() === 'sold') {
+      alert(`Cannot delete player ${player.fullName} because they are already sold to ${player.soldTeam}. You must first release them or delete the team.`);
+      return;
+    }
+    if (window.confirm(`Are you sure you want to delete player ${player.fullName}? This cannot be undone.`)) {
+      await deletePlayer(player.id, city);
+      setToastMessage({ text: `Player ${player.fullName} deleted`, type: 'success' });
+      setTimeout(() => setToastMessage(null), 1500);
+      setSelectedPlayer(null);
+    }
   };
 
   const getStatusPillClass = (status) => {
@@ -91,7 +210,7 @@ const PlayersPage = () => {
         </div>
         {role === 'admin' && (
           <button 
-            onClick={() => setShowAddModal(true)} 
+            onClick={() => { resetForm(); setShowAddModal(true); }} 
             className="btn btn-primary"
             style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
           >
@@ -162,7 +281,12 @@ const PlayersPage = () => {
           </thead>
           <tbody>
             {filteredPlayers.map((player) => (
-              <tr key={player.id}>
+              <tr 
+                key={player.id} 
+                onClick={() => setSelectedPlayer(player)} 
+                style={{ cursor: 'pointer' }}
+                className="hover-row"
+              >
                 <td style={{ fontWeight: '600', color: 'white' }}>{player.wissenId}</td>
                 <td>
                   <div style={{ fontWeight: '600' }}>{player.fullName}</div>
@@ -174,7 +298,7 @@ const PlayersPage = () => {
                     {player.skillLevel}
                   </span>
                 </td>
-                <td style={{ textAlign: 'center' }}>{player.yearsOfExperience} yr{player.yearsOfExperience > 1 ? 's' : ''}</td>
+                <td style={{ textAlign: 'center' }}>{player.yearsOfExperience !== null && player.yearsOfExperience !== undefined ? `${player.yearsOfExperience} yr${player.yearsOfExperience !== 1 ? 's' : ''}` : '-'}</td>
                 <td style={{ fontWeight: '600', color: 'var(--color-secondary)' }}>{player.basePrice.toLocaleString()} pts</td>
                 <td>
                   <span className={getStatusPillClass(player.status)}>
@@ -182,7 +306,7 @@ const PlayersPage = () => {
                   </span>
                 </td>
                 <td>
-                  {player.status === 'sold' ? (
+                  {player.status?.toLowerCase() === 'sold' ? (
                     <div>
                       <div style={{ fontWeight: '600', color: 'white', fontSize: '0.9rem' }}>{player.soldTeam}</div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--color-primary)' }}>@{player.soldPrice.toLocaleString()} pts</div>
@@ -207,17 +331,57 @@ const PlayersPage = () => {
       {/* Add Player Modal (Admin Only) */}
       {showAddModal && role === 'admin' && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '450px' }}>
+          <div className="modal-content hide-scrollbar" style={{ maxWidth: '450px', maxHeight: '90vh', overflowY: 'auto' }}>
             <div className="modal-header">
               <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Plus size={20} style={{ color: 'var(--color-primary)' }} />
-                Add New Player Draft
+                {editingPlayer ? 'Edit Player' : 'Add New Player Draft'}
               </h3>
-              <button className="close-btn" onClick={() => setShowAddModal(false)}>&times;</button>
+              <button className="close-btn" type="button" onClick={() => { resetForm(); setShowAddModal(false); }}>&times;</button>
+            </div>
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+              <button 
+                type="button" 
+                className={`btn ${uploadMode === 'manual' ? 'btn-primary' : 'btn-secondary'}`} 
+                onClick={() => setUploadMode('manual')}
+                style={{ flex: 1 }}
+              >
+                Manual Entry
+              </button>
+              <button 
+                type="button" 
+                className={`btn ${uploadMode === 'excel' ? 'btn-primary' : 'btn-secondary'}`} 
+                onClick={() => setUploadMode('excel')}
+                style={{ flex: 1 }}
+              >
+                Excel Upload
+              </button>
             </div>
             
-            <form onSubmit={handleSubmit}>
-              <div className="form-group">
+            {uploadMode === 'excel' ? (
+              <form onSubmit={handleExcelUpload}>
+                <div className="form-group" style={{ marginBottom: '24px' }}>
+                  <label className="form-label">Select Excel File (.xlsx)</label>
+                  <input 
+                    type="file" 
+                    accept=".xlsx, .xls"
+                    className="form-input" 
+                    onChange={(e) => setExcelFile(e.target.files[0])}
+                    required
+                    style={{ padding: '12px' }}
+                  />
+                  <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '8px' }}>
+                    Upload an Excel file matching the required schema (Email, Wissen ID, Full Name, Gender, Mobile Number, Skill Level, Experience, Image URL).
+                  </p>
+                </div>
+                <div className="modal-actions">
+                  <button type="button" className="btn btn-secondary" onClick={() => { resetForm(); setShowAddModal(false); }}>Cancel</button>
+                  <button type="submit" className="btn btn-primary" disabled={!excelFile}>Import Players</button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={handleSubmit}>
+                <div className="form-group">
                 <label className="form-label">Wissen Employee ID *</label>
                 <input 
                   type="text" 
@@ -255,6 +419,29 @@ const PlayersPage = () => {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div className="form-group">
+                  <label className="form-label">Mobile Number</label>
+                  <input 
+                    type="tel" 
+                    className="form-input" 
+                    placeholder="Enter mobile number" 
+                    value={mobileNumber}
+                    onChange={(e) => setMobileNumber(e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Image URL</label>
+                  <input 
+                    type="url" 
+                    className="form-input" 
+                    placeholder="https://..." 
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="form-group">
                   <label className="form-label">Gender</label>
                   <select 
                     className="form-select"
@@ -271,7 +458,13 @@ const PlayersPage = () => {
                   <select 
                     className="form-select"
                     value={skillLevel}
-                    onChange={(e) => setSkillLevel(e.target.value)}
+                    onChange={(e) => {
+                      const newSkill = e.target.value;
+                      setSkillLevel(newSkill);
+                      if (newSkill === 'Beginner') setBasePrice(2000);
+                      else if (newSkill === 'Intermediate') setBasePrice(5000);
+                      else if (newSkill === 'Advanced') setBasePrice(8000);
+                    }}
                   >
                     <option value="Beginner">Beginner</option>
                     <option value="Intermediate">Intermediate</option>
@@ -298,26 +491,157 @@ const PlayersPage = () => {
                   <label className="form-label">Base Price (Points)</label>
                   <input 
                     type="number" 
-                    min="1000"
-                    step="1000"
                     className="form-input" 
                     value={basePrice}
-                    onChange={(e) => setBasePrice(e.target.value)}
+                    disabled
+                    style={{ background: 'rgba(255,255,255,0.02)', color: 'var(--color-text-muted)' }}
                     required 
                   />
                 </div>
               </div>
 
+              <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                  <input 
+                    type="checkbox" 
+                    id="statsToggle"
+                    checked={showStats}
+                    onChange={(e) => setShowStats(e.target.checked)}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  <label htmlFor="statsToggle" style={{ color: 'white', fontSize: '0.9rem', cursor: 'pointer', margin: 0 }}>
+                    Include Match Statistics (Optional)
+                  </label>
+                </div>
+                
+                {showStats && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontSize: '0.75rem' }}>Played</label>
+                      <input type="number" min="0" className="form-input" value={matchesPlayed} onChange={(e) => setMatchesPlayed(e.target.value)} />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontSize: '0.75rem' }}>Won</label>
+                      <input type="number" min="0" className="form-input" value={matchesWon} onChange={(e) => setMatchesWon(e.target.value)} />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontSize: '0.75rem' }}>Lost</label>
+                      <input type="number" min="0" className="form-input" value={matchesLost} onChange={(e) => setMatchesLost(e.target.value)} />
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '20px' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowAddModal(false)}>
+                <button type="button" className="btn btn-secondary" onClick={() => { resetForm(); setShowAddModal(false); }}>
                   Cancel
                 </button>
                 <button type="submit" className="btn btn-primary">
-                  Register Player
+                  {editingPlayer ? 'Save Changes' : 'Register Player'}
                 </button>
               </div>
             </form>
+            )}
           </div>
+        </div>
+      )}
+
+      {/* Player Stats Modal */}
+      {selectedPlayer && (
+        <div className="modal-overlay" onClick={() => setSelectedPlayer(null)}>
+          <div className="modal-content" style={{ maxWidth: '400px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 className="modal-title">Player Profile</h3>
+              <button className="close-btn" onClick={() => setSelectedPlayer(null)}><X size={24} /></button>
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+              <div style={{ 
+                width: '100px', 
+                height: '100px', 
+                borderRadius: '50%', 
+                overflow: 'hidden', 
+                background: 'var(--bg-color)',
+                border: '2px solid var(--color-primary)'
+              }}>
+                {selectedPlayer.imageUrl && !modalImgError ? (
+                  <img src={selectedPlayer.imageUrl} alt={selectedPlayer.fullName} onError={() => setModalImgError(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <svg viewBox="0 0 100 100" style={{ width: '100%', height: '100%', background: '#1e293b' }}>
+                    <circle cx="50" cy="35" r="20" fill="#94a3b8" />
+                    <path d="M15 85 C 15 65, 30 55, 50 55 C 70 55, 85 65, 85 85 Z" fill="#64748b" />
+                  </svg>
+                )}
+              </div>
+              
+              <div>
+                <h4 style={{ fontSize: '1.4rem', color: 'white', margin: '0 0 4px 0' }}>{selectedPlayer.fullName}</h4>
+                <div style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>{selectedPlayer.wissenId}</div>
+                <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>Mobile: {selectedPlayer.mobileNumber || '-'}</div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                <span className={getSkillPillClass(selectedPlayer.skillLevel)}>{selectedPlayer.skillLevel}</span>
+                <span className="pill" style={{ background: 'rgba(255,255,255,0.1)', color: 'white' }}>
+                  {selectedPlayer.yearsOfExperience !== null && selectedPlayer.yearsOfExperience !== undefined ? `${selectedPlayer.yearsOfExperience} Yrs Exp` : '- Exp'}
+                </span>
+              </div>
+
+              <div style={{ width: '100%', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
+                <h5 style={{ color: 'white', marginBottom: '12px', fontSize: '1rem' }}>Match Statistics</h5>
+                {selectedPlayer.stats ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                    <div style={{ background: 'rgba(255,255,255,0.05)', padding: '12px', borderRadius: '8px' }}>
+                      <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'white' }}>{selectedPlayer.stats.matchesPlayed || 0}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Played</div>
+                    </div>
+                    <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '12px', borderRadius: '8px' }}>
+                      <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#10b981' }}>{selectedPlayer.stats.matchesWon || 0}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Won</div>
+                    </div>
+                    <div style={{ background: 'rgba(239, 68, 68, 0.1)', padding: '12px', borderRadius: '8px' }}>
+                      <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#ef4444' }}>{selectedPlayer.stats.matchesLost || 0}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Lost</div>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ color: 'var(--color-text-muted)', fontStyle: 'italic', padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px' }}>
+                    no matches history found
+                  </div>
+                )}
+              </div>
+
+              {role === 'admin' && (
+                <div style={{ display: 'flex', gap: '12px', width: '100%', marginTop: '24px' }}>
+                  <button onClick={() => { setSelectedPlayer(null); handleEditClick(selectedPlayer); }} className="btn btn-primary" style={{ flex: 1 }}>Edit Player</button>
+                  <button onClick={() => handleDeleteClick(selectedPlayer)} className="btn btn-secondary" style={{ flex: 1 }}>Delete</button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div 
+          style={{
+            position: 'fixed', 
+            top: '20px', 
+            left: '50%', 
+            transform: 'translateX(-50%)', 
+            zIndex: 9999, 
+            background: toastMessage.type === 'error' ? 'var(--color-danger)' : 'var(--color-success)', 
+            color: toastMessage.type === 'error' ? 'white' : '#000', 
+            padding: '16px 24px', 
+            borderRadius: '8px', 
+            fontWeight: 'bold', 
+            boxShadow: '0 4px 20px rgba(0,0,0,0.5)', 
+            cursor: 'pointer',
+            animation: 'fadeIn 0.2s ease-out'
+          }}
+        >
+          {toastMessage.text}
         </div>
       )}
     </div>

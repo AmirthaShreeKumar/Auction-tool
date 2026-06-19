@@ -1,28 +1,29 @@
 import React, { useContext, useEffect } from 'react';
 import { Outlet, useParams, useNavigate, NavLink } from 'react-router-dom';
 import { AppContext } from '../context/AppContext';
-import { 
-  LayoutDashboard, 
-  Users, 
-  Trophy, 
-  Gavel, 
-  BarChart3, 
-  LogOut, 
-  MapPin, 
-  ShieldAlert, 
+import {
+  LayoutDashboard,
+  Users,
+  Trophy,
+  Gavel,
+  BarChart3,
+  LogOut,
+  MapPin,
+  ShieldAlert,
   RotateCcw,
-  Sparkles
+  Sparkles,
+  BookOpen
 } from 'lucide-react';
 
 const MainLayout = () => {
   const { city: urlCity, role: urlRole } = useParams();
   const navigate = useNavigate();
-  const { 
-    city, 
-    role, 
-    selectCity, 
-    selectRole, 
-    resetDatabase 
+  const {
+    city,
+    role,
+    selectCity,
+    selectRole,
+    logout
   } = useContext(AppContext);
 
   // Sync route parameters with AppContext
@@ -36,16 +37,10 @@ const MainLayout = () => {
   }, [urlCity, urlRole, city, role, selectCity, selectRole]);
 
   const handleLogout = () => {
-    // Navigate back to landing page
+    logout();
     navigate('/');
   };
 
-  const handleReset = () => {
-    if (window.confirm("Are you sure you want to reset all mock data to defaults?")) {
-      resetDatabase();
-      alert("Database reset completed successfully!");
-    }
-  };
 
   // Capitalize strings
   const formatText = (txt) => {
@@ -58,11 +53,11 @@ const MainLayout = () => {
       {/* Top Banner Header */}
       <header className="header-bar">
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ 
-            background: 'var(--color-primary)', 
-            color: '#000', 
-            padding: '8px 12px', 
-            borderRadius: '8px', 
+          <div style={{
+            background: 'var(--color-primary)',
+            color: '#000',
+            padding: '8px 12px',
+            borderRadius: '8px',
             fontWeight: '800',
             fontFamily: 'var(--font-display)',
             display: 'flex',
@@ -71,7 +66,7 @@ const MainLayout = () => {
             fontSize: '0.9rem'
           }}>
             <Sparkles size={16} />
-            WBP
+            WBPL
           </div>
           <div>
             <h1 style={{ fontSize: '1.2rem', fontWeight: '800', color: 'white', margin: 0, lineHeight: 1.1 }}>
@@ -86,12 +81,12 @@ const MainLayout = () => {
         {/* User context and utility actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <div style={{ display: 'flex', gap: '8px' }}>
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '6px', 
-              background: 'rgba(255, 255, 255, 0.05)', 
-              padding: '6px 12px', 
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'rgba(255, 255, 255, 0.05)',
+              padding: '6px 12px',
               borderRadius: '6px',
               border: '1px solid var(--border-color)',
               fontSize: '0.85rem'
@@ -99,13 +94,13 @@ const MainLayout = () => {
               <MapPin size={14} style={{ color: 'var(--color-secondary)' }} />
               <span style={{ fontWeight: '600' }}>{formatText(urlCity)}</span>
             </div>
-            
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '6px', 
-              background: urlRole === 'admin' ? 'rgba(212, 252, 52, 0.1)' : 'rgba(0, 240, 255, 0.1)', 
-              padding: '6px 12px', 
+
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: urlRole === 'admin' ? 'rgba(212, 252, 52, 0.1)' : 'rgba(0, 240, 255, 0.1)',
+              padding: '6px 12px',
               borderRadius: '6px',
               border: urlRole === 'admin' ? '1px solid rgba(212, 252, 52, 0.2)' : '1px solid rgba(0, 240, 255, 0.2)',
               fontSize: '0.85rem',
@@ -118,10 +113,6 @@ const MainLayout = () => {
             </div>
           </div>
 
-          <button onClick={handleReset} className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '0.8rem', display: 'flex', gap: '4px' }}>
-            <RotateCcw size={13} />
-            Reset Data
-          </button>
 
           <button onClick={handleLogout} className="btn btn-danger" style={{ padding: '6px 10px', fontSize: '0.8rem', display: 'flex', gap: '4px' }}>
             <LogOut size={13} />
@@ -136,58 +127,56 @@ const MainLayout = () => {
         <aside className="sidebar">
           <div className="sidebar-title">Menu Navigation</div>
           <nav className="nav-menu">
-            <NavLink 
-              to={`/dashboard/${urlCity}/${urlRole}`} 
-              end 
+            <NavLink
+              to={`/dashboard/${urlCity}/${urlRole}`}
+              end
               className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
             >
               <LayoutDashboard size={18} />
               Overview
             </NavLink>
 
-            <NavLink 
-              to={`/dashboard/${urlCity}/${urlRole}/players`} 
+            <NavLink
+              to={`/dashboard/${urlCity}/${urlRole}/players`}
               className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
             >
               <Users size={18} />
               Players Roster
             </NavLink>
 
-            <NavLink 
-              to={`/dashboard/${urlCity}/${urlRole}/teams`} 
+            <NavLink
+              to={`/dashboard/${urlCity}/${urlRole}/teams`}
               className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
             >
               <Trophy size={18} />
               Teams List
             </NavLink>
 
-            <NavLink 
-              to={`/dashboard/${urlCity}/${urlRole}/auction`} 
-              className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-            >
-              <Gavel size={18} />
-              {urlRole === 'admin' ? 'Live Auction' : 'Auction Board'}
-            </NavLink>
+            {urlRole === 'admin' && (
+              <NavLink
+                to={`/dashboard/${urlCity}/${urlRole}/auction`}
+                className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+              >
+                <Gavel size={18} />
+                Live Auction
+              </NavLink>
+            )}
 
-            <NavLink 
-              to={`/dashboard/${urlCity}/${urlRole}/statistics`} 
+            <NavLink
+              to={`/dashboard/${urlCity}/${urlRole}/statistics`}
               className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
             >
               <BarChart3 size={18} />
               Statistics
             </NavLink>
+            <NavLink
+              to={`/dashboard/${urlCity}/${urlRole}/rules`}
+              className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+            >
+              <BookOpen size={18} />
+              Bidding Rules
+            </NavLink>
           </nav>
-
-          <div style={{ marginTop: 'auto', padding: '16px', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '0.8rem' }}>
-            <div style={{ fontWeight: '600', color: 'var(--color-primary)', marginBottom: '4px' }}>Bidding Rules</div>
-            <ul style={{ paddingLeft: '16px', color: 'var(--color-text-muted)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <li>Purse: 100K Points</li>
-              <li>Size: 10 Players</li>
-              <li>Min 2 Beginner</li>
-              <li>Min 2 Female</li>
-              <li>Bid Inc: +500</li>
-            </ul>
-          </div>
         </aside>
 
         {/* Nested Content Outlet */}

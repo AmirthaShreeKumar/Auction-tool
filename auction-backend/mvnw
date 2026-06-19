@@ -1,0 +1,18 @@
+#!/bin/sh
+# Maven Wrapper - downloads Maven if not present and runs it
+# This script is used to run Maven commands without requiring Maven to be installed.
+
+if [ -z "$JAVA_HOME" ]; then
+  JAVA_CMD="java"
+else
+  JAVA_CMD="$JAVA_HOME/bin/java"
+fi
+
+MAVEN_WRAPPER_JAR="$0/../.mvn/wrapper/maven-wrapper.jar"
+MAVEN_WRAPPER_PROPERTIES="$0/../.mvn/wrapper/maven-wrapper.properties"
+
+exec "$JAVA_CMD" \
+  -classpath "$MAVEN_WRAPPER_JAR" \
+  "-Dmaven.home=${MAVEN_HOME}" \
+  "org.apache.maven.wrapper.MavenWrapperMain" \
+  "$@" -f "$0/../pom.xml"

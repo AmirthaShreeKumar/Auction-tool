@@ -37,9 +37,9 @@ const Dashboard = () => {
   // Calculations
   const totalPlayers = cityPlayers.length;
   const totalTeams = cityTeams.length;
-  const soldPlayersCount = cityPlayers.filter(p => p.status === 'sold').length;
-  const unsoldPlayersCount = cityPlayers.filter(p => p.status === 'unsold').length;
-  const passedPlayersCount = cityPlayers.filter(p => p.status === 'passed').length;
+  const soldPlayersCount = cityPlayers.filter(p => p.status === 'SOLD').length;
+  const unsoldPlayersCount = cityPlayers.filter(p => p.status === 'UNSOLD').length;
+  const passedPlayersCount = cityPlayers.filter(p => p.status === 'PASSED').length;
 
   const totalPurseAllocated = totalTeams * businessRules.purseLimit;
   const totalPurseRemaining = cityTeams.reduce((sum, t) => sum + t.purseRemaining, 0);
@@ -72,10 +72,12 @@ const Dashboard = () => {
           <p className="page-subtitle">Welcome to the Wissen Badminton Premier League portal for {capitalize(city)} location.</p>
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
-          <Link to={`/dashboard/${city}/${role}/auction`} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Gavel size={16} />
-            Go to Auction Board
-          </Link>
+          {role === 'admin' && (
+            <Link to={`/dashboard/${city}/${role}/auction`} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Gavel size={16} />
+              Go to Auction Board
+            </Link>
+          )}
         </div>
       </div>
 
@@ -265,27 +267,16 @@ const Dashboard = () => {
               <div style={{ background: 'rgba(255, 255, 255, 0.02)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', fontSize: '0.9rem', marginBottom: '4px' }}>
                   <span>Bidding Mechanics</span>
-                  <span style={{ color: 'white' }}>+{businessRules.bidIncrement} Points Increment</span>
+                  <span style={{ color: 'white' }}>+500 / +1000 Points Increment</span>
                 </div>
                 <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-                  Standard bid increment is 500 points. Admins can click "Increase Bid" on behalf of teams.
+                  Standard bid increments are +500 and +1000 points. Admins can choose the desired bid raise on behalf of teams.
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Help Sandbox Card */}
-          <div className="glass-panel" style={{ padding: '20px', background: 'rgba(0, 240, 255, 0.03)', borderColor: 'rgba(0, 240, 255, 0.15)' }}>
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <HelpCircle size={20} style={{ color: 'var(--color-secondary)', flexShrink: 0, marginTop: '2px' }} />
-              <div>
-                <h4 style={{ fontSize: '0.95rem', color: 'white', marginBottom: '4px' }}>Did you know?</h4>
-                <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', lineHeight: '1.4' }}>
-                  Mock state is persisted in your browser's LocalStorage! You can simulate an entire auction, refresh the browser, and your purchases, purses, and rosters will remain. Use the "Reset Data" button in the header to restart.
-                </p>
-              </div>
-            </div>
-          </div>
+
 
         </div>
 
