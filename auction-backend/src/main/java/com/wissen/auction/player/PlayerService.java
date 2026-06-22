@@ -3,6 +3,7 @@ package com.wissen.auction.player;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -91,6 +92,7 @@ public class PlayerService {
 
     // ---- UPDATE ----
 
+    @CacheEvict(value = "auctionState", key = "#city")
     @Transactional
     public PlayerDTO updatePlayer(Long id, PlayerRequest req, String city) {
         Player player = findOrThrow(id);
@@ -229,7 +231,21 @@ public class PlayerService {
                 String fullName        = getCellStringSafe(row, fullNameCol);
                 String genderStr       = getCellStringSafe(row, genderCol).toUpperCase();
                 String skillLevelStr   = getCellStringSafe(row, skillCol).toUpperCase();
-                
+
+                // Validate required fields — skip rows with missing data rather than storing nulls
+                if (fullName == null || fullName.trim().isEmpty()) {
+                    throw new IllegalArgumentException(
+                        "Row " + (row.getRowNum() + 1) + ": 'Full Name' is missing.");
+                }
+                if (genderStr.isEmpty()) {
+                    throw new IllegalArgumentException(
+                        "Row " + (row.getRowNum() + 1) + " (" + fullName + "): 'Gender' is missing.");
+                }
+                if (skillLevelStr.isEmpty()) {
+                    throw new IllegalArgumentException(
+                        "Row " + (row.getRowNum() + 1) + " (" + fullName + "): 'Skill Level' is missing.");
+                }
+
                 String mobile = null;
                 if (mobileCol != -1) {
                     mobile = getCellStringSafe(row, mobileCol);

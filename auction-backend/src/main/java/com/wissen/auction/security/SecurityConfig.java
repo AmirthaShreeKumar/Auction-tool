@@ -48,7 +48,7 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // Public endpoints
+                // Public endpoints (login + logout — logout just clears the cookie, no auth needed)
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/*/players/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/*/teams/**").permitAll()

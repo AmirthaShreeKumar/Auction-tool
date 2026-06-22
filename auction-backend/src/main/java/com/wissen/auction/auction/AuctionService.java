@@ -4,6 +4,8 @@ import com.wissen.auction.player.*;
 import com.wissen.auction.team.*;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.Hibernate;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,6 +46,7 @@ public class AuctionService {
      * Returns the current auction snapshot for a given city.
      * The active player is the first in the auction queue.
      */
+    @Cacheable(value = "auctionState", key = "#city")
     @Transactional(readOnly = true)
     public AuctionStateDTO getAuctionState(String city) {
         List<Player> queue = playerRepository.findAuctionQueue(city);
@@ -51,7 +54,8 @@ public class AuctionService {
 
         PlayerDTO activePlayer = queueDTOs.isEmpty() ? null : queueDTOs.get(0);
 
-        List<com.wissen.auction.team.Team> teams = teamRepository.findByLocationIgnoreCase(city);
+        // Use fetch join to avoid N+1 queries when TeamDTO.from() accesses each team's players
+        List<com.wissen.auction.team.Team> teams = teamRepository.findByLocationWithPlayers(city);
         List<TeamDTO> teamDTOs = teams.stream().map(TeamDTO::from).collect(Collectors.toList());
 
         return AuctionStateDTO.builder()
@@ -71,6 +75,7 @@ public class AuctionService {
      * Places a bid for a team on the currently active player.
      * Returns updated BidLog entry.
      */
+    @CacheEvict(value = "auctionState", key = "#city")
     @Transactional
     public BidResponseDTO placeBid(Long playerId, Long teamId, Integer increment, String city) {
         Player player = playerService.findOrThrow(playerId);
@@ -144,6 +149,7 @@ public class AuctionService {
 
     // ---- REVERT LAST BID ----
 
+    @CacheEvict(value = "auctionState", key = "#city")
     @Transactional
     public BidResponseDTO revertLastBid(Long playerId, String city) {
         Player player = playerService.findOrThrow(playerId);
@@ -187,9 +193,12 @@ public class AuctionService {
     private static final int MIN_FEMALES   = 2;
     private static final int MIN_BEGINNERS = 2;
 
+    @CacheEvict(value = "auctionState", key = "#city")
     @Transactional
     public PlayerDTO markSold(Long playerId, Long teamId, Integer finalPrice, String city) {
-        Player player = playerService.findOrThrow(playerId);
+        // Pessimistic lock prevents two concurrent sell requests on the same player
+        Player player = playerRepository.findByIdForUpdate(playerId)
+                .orElseThrow(() -> new RuntimeException("Player not found with id: " + playerId));
         com.wissen.auction.team.Team team = teamService.findOrThrow(teamId);
 
         if (!team.getLocation().equalsIgnoreCase(city)) {
@@ -237,11 +246,15 @@ public class AuctionService {
         player.setSoldTeam(team);
         playerRepository.save(player);
 
-        // Update team
+        // Deduct purse — the only counter worth storing (used for quick budget checks in placeBid).
+        // totalPlayers / femalePlayers / beginnerPlayers are computed dynamically in TeamDTO.from()
+        // so we don't touch those fields; keeping them avoids drift between entity and DTO.
         team.setPurseRemaining(team.getPurseRemaining() - finalPrice);
-        team.setTotalPlayers(team.getTotalPlayers() + 1);
-        team.setFemalePlayers(team.getFemalePlayers() + (isFemale ? 1 : 0));
-        team.setBeginnerPlayers(team.getBeginnerPlayers() + (isBeginner ? 1 : 0));
+        // Keep the in-memory collection consistent so compliance stream-counts stay accurate
+        // within the same transaction without a reload.
+        if (team.getPlayers() != null) {
+            team.getPlayers().add(player);
+        }
         teamRepository.save(team);
 
         return PlayerDTO.from(player);
@@ -249,12 +262,16 @@ public class AuctionService {
 
     // ---- PASS / MARK UNSOLD ----
 
+    @CacheEvict(value = "auctionState", key = "#city")
     @Transactional
     public PlayerDTO passPlayer(Long playerId, String city) {
         Player player = playerService.findOrThrow(playerId);
         if (!player.getLocation().equalsIgnoreCase(city)) {
             throw new SecurityException("Cannot modify players from another city.");
         }
+        // Clear bid history so re-auction starts with a clean slate and revertBid
+        // cannot accidentally revert a bid from a previous round.
+        bidLogRepository.deleteByPlayer(player);
         player.setStatus(Player.PlayerStatus.PASSED);
         return PlayerDTO.from(playerRepository.save(player));
     }
@@ -264,6 +281,7 @@ public class AuctionService {
     /**
      * Resets all PASSED players back to UNSOLD so they re-enter the auction queue.
      */
+    @CacheEvict(value = "auctionState", key = "#city")
     @Transactional
     public List<PlayerDTO> resetPassedPlayers(String city) {
         List<Player> passed = playerRepository.findByLocationIgnoreCaseAndStatus(
