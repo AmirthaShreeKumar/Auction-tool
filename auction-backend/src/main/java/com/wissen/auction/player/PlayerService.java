@@ -314,6 +314,17 @@ public class PlayerService {
                 .collect(Collectors.toList());
     }
 
+    // ---- BULK DELETE ----
+
+    @Transactional
+    public int deleteAllPlayersByCity(String city) {
+        List<Player> players = playerRepository.findByLocationIgnoreCase(city);
+        if (players.isEmpty()) return 0;
+        bidLogRepository.deleteByPlayerIn(players);
+        playerRepository.deleteAll(players);
+        return players.size();
+    }
+
     // ---- Status Update (used by AuctionService) ----
 
     @Transactional

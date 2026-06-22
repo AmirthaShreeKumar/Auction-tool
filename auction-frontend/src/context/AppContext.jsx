@@ -147,6 +147,11 @@ export const AppProvider = ({ children }) => {
     return newPlayers;
   };
 
+  const clearAllPlayers = async () => {
+    await apiFetch(`/api/${city}/players`, { method: 'DELETE' });
+    setPlayers([]);
+  };
+
   const updatePlayer = async (id, playerData) => {
     const updated = await apiFetch(`/api/${city}/players/${id}`, {
       method: 'PUT',
@@ -421,7 +426,7 @@ export const AppProvider = ({ children }) => {
       auctionGenderFilter,
       setAuctionGenderFilter,
       // Player CRUD
-      addPlayer, importPlayersFromExcel, updatePlayer, deletePlayer,
+      addPlayer, importPlayersFromExcel, updatePlayer, deletePlayer, clearAllPlayers,
       // Team CRUD
       createTeam, updateTeam, deleteTeam, releasePlayerFromTeam,
       // Auction actions

@@ -5,7 +5,7 @@ import { Plus, UserPlus, Filter, X, Search } from 'lucide-react';
 
 const PlayersPage = () => {
   const { city, role } = useParams();
-  const { players, addPlayer, importPlayersFromExcel, updatePlayer, deletePlayer } = useContext(AppContext);
+  const { players, addPlayer, importPlayersFromExcel, updatePlayer, deletePlayer, clearAllPlayers } = useContext(AppContext);
 
   const [skillFilter, setSkillFilter]   = useState('All');
   const [searchQuery, setSearchQuery]   = useState('');
@@ -209,14 +209,36 @@ const PlayersPage = () => {
           <p className="page-subtitle">Manage and review badminton players registered in {city.toUpperCase()} draft.</p>
         </div>
         {role === 'admin' && (
-          <button 
-            onClick={() => { resetForm(); setShowAddModal(true); }} 
-            className="btn btn-primary"
-            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-          >
-            <UserPlus size={16} />
-            Add Player
-          </button>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              onClick={async () => {
+                const count = cityPlayers.length;
+                if (count === 0) return;
+                if (!window.confirm(`Delete all ${count} players in ${city.toUpperCase()}? This cannot be undone.`)) return;
+                try {
+                  await clearAllPlayers();
+                  setToastMessage({ text: `All ${count} players deleted`, type: 'success' });
+                  setTimeout(() => setToastMessage(null), 2000);
+                } catch (err) {
+                  setToastMessage({ text: err.message || 'Failed to delete players', type: 'error' });
+                  setTimeout(() => setToastMessage(null), 3000);
+                }
+              }}
+              className="btn btn-secondary"
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#ef4444', borderColor: '#ef4444' }}
+              disabled={cityPlayers.length === 0}
+            >
+              Clear All Players
+            </button>
+            <button
+              onClick={() => { resetForm(); setShowAddModal(true); }}
+              className="btn btn-primary"
+              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+            >
+              <UserPlus size={16} />
+              Add Player
+            </button>
+          </div>
         )}
       </div>
 

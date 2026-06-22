@@ -79,6 +79,16 @@ public class PlayerController {
         return ResponseEntity.noContent().build();
     }
 
+    /** DELETE /api/{city}/players – delete all players for this city (Admin only) */
+    @DeleteMapping
+    public ResponseEntity<Void> deleteAllPlayers(@PathVariable String city,
+                                                  HttpServletRequest httpReq) {
+        String jwtCity = (String) httpReq.getAttribute("jwtCity");
+        validateCity(city, jwtCity);
+        playerService.deleteAllPlayersByCity(jwtCity);
+        return ResponseEntity.noContent().build();
+    }
+
     /** POST /api/{city}/players/import – bulk Excel import (Admin only) */
     @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<List<PlayerDTO>> importPlayers(@PathVariable String city,

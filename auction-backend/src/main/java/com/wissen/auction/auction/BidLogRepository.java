@@ -29,4 +29,7 @@ public interface BidLogRepository extends JpaRepository<BidLog, Long> {
 
     /** Delete all bids associated with a player */
     void deleteByPlayer(Player player);
+
+    /** Bulk-delete all bids for a list of players */
+    void deleteByPlayerIn(List<Player> players);
 }
