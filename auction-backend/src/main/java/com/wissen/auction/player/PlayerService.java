@@ -232,19 +232,11 @@ public class PlayerService {
                 String genderStr       = getCellStringSafe(row, genderCol).toUpperCase();
                 String skillLevelStr   = getCellStringSafe(row, skillCol).toUpperCase();
 
-                // Validate required fields — skip rows with missing data rather than storing nulls
-                if (fullName == null || fullName.trim().isEmpty()) {
-                    throw new IllegalArgumentException(
-                        "Row " + (row.getRowNum() + 1) + ": 'Full Name' is missing.");
-                }
-                if (genderStr.isEmpty()) {
-                    throw new IllegalArgumentException(
-                        "Row " + (row.getRowNum() + 1) + " (" + fullName + "): 'Gender' is missing.");
-                }
-                if (skillLevelStr.isEmpty()) {
-                    throw new IllegalArgumentException(
-                        "Row " + (row.getRowNum() + 1) + " (" + fullName + "): 'Skill Level' is missing.");
-                }
+                // Skip rows where required fields are blank — common in form exports
+                // that have trailing rows or optional-response entries.
+                if (fullName == null || fullName.trim().isEmpty()) continue;
+                if (genderStr.isEmpty()) continue;
+                if (skillLevelStr.isEmpty()) continue;
 
                 String mobile = null;
                 if (mobileCol != -1) {
