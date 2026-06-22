@@ -18,7 +18,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class LogoGenerationService {
 
-    @Value("${gemini.api.key}")
+    @Value("${gemini.api.key:}")
     private String apiKey;
 
     private final TeamRepository teamRepository;
