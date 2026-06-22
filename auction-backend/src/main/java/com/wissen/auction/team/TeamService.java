@@ -5,6 +5,7 @@ import org.hibernate.Hibernate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.wissen.auction.auction.BidLogRepository;
 import com.wissen.auction.player.Player;
 import com.wissen.auction.player.PlayerRepository;
 
@@ -23,12 +24,13 @@ public class TeamService {
 
     private final TeamRepository teamRepository;
     private final PlayerRepository playerRepository;
+    private final BidLogRepository bidLogRepository;
 
     // ---- READ ----
 
     @Transactional(readOnly = true)
     public List<TeamDTO> getTeamsByCity(String city) {
-        return teamRepository.findByLocationIgnoreCase(city)
+        return teamRepository.findByLocationWithPlayers(city)
                 .stream()
                 .map(TeamDTO::from)
                 .collect(Collectors.toList());
@@ -99,6 +101,20 @@ public class TeamService {
             throw new SecurityException("Cannot delete teams from another city.");
         }
 
+        // Block delete if this team is the current highest bidder on any active player.
+        // Selling after deletion would reference a non-existent team.
+        List<Player> unsoldPlayers = playerRepository.findByLocationIgnoreCaseAndStatus(
+                city, Player.PlayerStatus.UNSOLD);
+        for (Player p : unsoldPlayers) {
+            List<com.wissen.auction.auction.BidLog> bids =
+                    bidLogRepository.findByPlayerOrderByCreatedAtDesc(p);
+            if (!bids.isEmpty() && bids.get(0).getTeamName().equalsIgnoreCase(team.getTeamName())) {
+                throw new IllegalStateException(
+                    "Cannot delete '" + team.getTeamName() + "' — they hold the current highest bid on "
+                    + p.getFullName() + ". Revert or complete the bid first.");
+            }
+        }
+
         // Remove dependency: reset all players bought by this team
         List<Player> players = team.getPlayers();
         if (players != null && !players.isEmpty()) {
@@ -129,15 +145,9 @@ public class TeamService {
             throw new IllegalArgumentException("This player does not belong to this team.");
         }
 
-        // Update team counters: decrement totals and refund purse
+        // Refund purse — the only counter we maintain as a stored field.
+        // totalPlayers / femalePlayers / beginnerPlayers are derived dynamically in TeamDTO.from().
         int refund = player.getSoldPrice() != null ? player.getSoldPrice() : 0;
-        team.setTotalPlayers(Math.max(0, team.getTotalPlayers() - 1));
-        if (player.getGender() == Player.Gender.Female) {
-            team.setFemalePlayers(Math.max(0, team.getFemalePlayers() - 1));
-        }
-        if (player.getSkillLevel() == Player.SkillLevel.Beginner) {
-            team.setBeginnerPlayers(Math.max(0, team.getBeginnerPlayers() - 1));
-        }
         team.setPurseRemaining(team.getPurseRemaining() + refund);
 
         // Release the player: mark as UNSOLD, clear sold info

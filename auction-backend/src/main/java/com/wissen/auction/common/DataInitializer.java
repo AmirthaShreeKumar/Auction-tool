@@ -9,7 +9,6 @@ import com.wissen.auction.team.TeamRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
@@ -30,20 +29,13 @@ public class DataInitializer implements CommandLineRunner {
     private final TeamRepository      teamRepository;
     private final PlayerRepository    playerRepository;
     private final PasswordEncoder     passwordEncoder;
-    private final JdbcTemplate        jdbcTemplate;
 
     @Override
     public void run(String... args) {
-        try {
-            log.info("Checking and altering column sizes in teams and players tables if necessary...");
-            jdbcTemplate.execute("ALTER TABLE teams ALTER COLUMN logo_url TYPE TEXT");
-            jdbcTemplate.execute("ALTER TABLE teams ALTER COLUMN logo_svg TYPE TEXT");
-            jdbcTemplate.execute("ALTER TABLE players ALTER COLUMN image_url TYPE TEXT");
-            log.info("Tables columns altered to TEXT successfully.");
-        } catch (Exception e) {
-            log.warn("Note: Could not run ALTER TABLE query (columns might already be TEXT): {}", e.getMessage());
-        }
-
+        // NOTE: logo_url, logo_svg, image_url columns were previously altered to TEXT via
+        // DDL in this method. That migration has been applied to the database already.
+        // Do NOT add ALTER TABLE calls here — they lock the table on every startup.
+        // Use Flyway or a one-off SQL migration for any future schema changes.
 
         if (userRepository.count() == 0) {
             seedUsers();

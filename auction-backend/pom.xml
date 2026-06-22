@@ -81,6 +81,12 @@
       <version>5.2.5</version>
     </dependency>
 
+    <!-- Caching (in-memory ConcurrentHashMap, no extra infra needed) -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-cache</artifactId>
+    </dependency>
+
     <!-- Lombok -->
     <dependency>
       <groupId>org.projectlombok</groupId>
