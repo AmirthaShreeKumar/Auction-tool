@@ -180,6 +180,14 @@ export const AppProvider = ({ children }) => {
     }));
   };
 
+  const uploadPlayerPhoto = async (playerId, photoFile) => {
+    const formData = new FormData();
+    formData.append('photo', photoFile);
+    const updated = await apiUpload(`/api/${city}/players/${playerId}/upload-photo`, formData);
+    setPlayers(prev => prev.map(p => p.id === playerId ? updated : p));
+    return updated;
+  };
+
   // ---- Team CRUD ----
   const createTeam = async (teamData) => {
     const newTeam = await apiFetch(`/api/${city}/teams`, {
@@ -314,16 +322,27 @@ export const AppProvider = ({ children }) => {
 
   const passPlayer = async () => {
     if (!activePlayer) return;
+    const passedPlayerId = activePlayer.id;
+
+    // Optimistic update: immediately mark player as UNSOLD locally
+    // so the auction queue re-computes and the UI advances instantly.
+    // The backend pass endpoint marks the player as UNSOLD and clears bid logs.
+    setPlayers(prev => prev.map(p =>
+      p.id === passedPlayerId
+        ? { ...p, status: 'PASSED' }
+        : p
+    ));
+
+    // Fire backend call in the background — don't await before advancing UI
     try {
-      const passedPlayerId = activePlayer.id;
       await apiFetch(`/api/${city}/auction/pass`, {
         method: 'POST',
         body: JSON.stringify({ playerId: passedPlayerId }),
       });
-      // Re-fetch to stay in sync — backend also clears bid logs on pass
-      await refreshPlayers();
     } catch (err) {
       console.error('Pass failed:', err.message);
+      // Revert optimistic update on failure
+      await refreshPlayers();
     }
   };
 
@@ -426,7 +445,7 @@ export const AppProvider = ({ children }) => {
       auctionGenderFilter,
       setAuctionGenderFilter,
       // Player CRUD
-      addPlayer, importPlayersFromExcel, updatePlayer, deletePlayer, clearAllPlayers,
+      addPlayer, importPlayersFromExcel, updatePlayer, deletePlayer, clearAllPlayers, uploadPlayerPhoto,
       // Team CRUD
       createTeam, updateTeam, deleteTeam, releasePlayerFromTeam,
       // Auction actions

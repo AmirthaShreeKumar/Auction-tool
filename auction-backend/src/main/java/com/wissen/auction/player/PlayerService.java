@@ -9,6 +9,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.Base64;
+import java.util.Set;
+
 import com.wissen.auction.auction.BidLogRepository;
 
 import java.io.IOException;
@@ -135,6 +138,48 @@ public class PlayerService {
             player.getStats().setMatchesLost(null);
         }
 
+        return PlayerDTO.from(playerRepository.save(player));
+    }
+
+    // ---- PHOTO UPLOAD ----
+
+    private static final long MAX_PHOTO_SIZE = 2 * 1024 * 1024; // 2MB
+    private static final Set<String> ALLOWED_IMAGE_TYPES = Set.of(
+            "image/jpeg", "image/png", "image/webp", "image/gif"
+    );
+
+    /**
+     * Upload a photo for a player. Converts the file to a Base64 data URI
+     * and stores it in the imageUrl column. This approach is deployment-safe
+     * (no filesystem dependency) and works with Docker/cloud deployments.
+     */
+    @Transactional
+    public PlayerDTO uploadPhoto(Long id, MultipartFile photo, String city) throws IOException {
+        Player player = findOrThrow(id);
+
+        if (!player.getLocation().equalsIgnoreCase(city)) {
+            throw new SecurityException("Cannot modify players from another city.");
+        }
+
+        // Validate content type
+        String contentType = photo.getContentType();
+        if (contentType == null || !ALLOWED_IMAGE_TYPES.contains(contentType.toLowerCase())) {
+            throw new IllegalArgumentException(
+                    "Invalid file type. Allowed types: JPEG, PNG, WebP, GIF");
+        }
+
+        // Validate file size
+        if (photo.getSize() > MAX_PHOTO_SIZE) {
+            throw new IllegalArgumentException(
+                    "Photo size exceeds 2MB limit. Please compress or resize the image.");
+        }
+
+        // Convert to Base64 data URI
+        byte[] bytes = photo.getBytes();
+        String base64 = Base64.getEncoder().encodeToString(bytes);
+        String dataUri = "data:" + contentType + ";base64," + base64;
+
+        player.setImageUrl(dataUri);
         return PlayerDTO.from(playerRepository.save(player));
     }
 

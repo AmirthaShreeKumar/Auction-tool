@@ -99,6 +99,17 @@ public class PlayerController {
         return ResponseEntity.ok(playerService.importFromExcel(file, jwtCity));
     }
 
+    /** POST /api/{city}/players/{id}/upload-photo – upload player photo (Admin only) */
+    @PostMapping(value = "/{id}/upload-photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<PlayerDTO> uploadPhoto(@PathVariable String city,
+                                                  @PathVariable Long id,
+                                                  @RequestParam("photo") MultipartFile photo,
+                                                  HttpServletRequest httpReq) throws IOException {
+        String jwtCity = (String) httpReq.getAttribute("jwtCity");
+        validateCity(city, jwtCity);
+        return ResponseEntity.ok(playerService.uploadPhoto(id, photo, jwtCity));
+    }
+
     private void validateCity(String pathCity, String jwtCity) {
         if (jwtCity != null && !jwtCity.equalsIgnoreCase(pathCity)) {
             throw new SecurityException("You are not authorized to access data for city: " + pathCity);
