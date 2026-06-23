@@ -61,8 +61,13 @@ const AuctionPage = () => {
   useEffect(() => {
     if (!toastMessage) return;
     const dismiss = () => setToastMessage(null);
-    document.addEventListener('click', dismiss);
-    return () => document.removeEventListener('click', dismiss);
+    const timer = setTimeout(() => {
+      document.addEventListener('click', dismiss);
+    }, 50);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('click', dismiss);
+    };
   }, [toastMessage]);
 
   useEffect(() => {
@@ -109,7 +114,7 @@ const AuctionPage = () => {
     } else {
       setShowTeamModal(false);
       setToastMessage({ text: `${playerSold} sold to ${teamName} for ${amountSold.toLocaleString()} pts`, type: 'success' });
-      setTimeout(() => setToastMessage(null), 1000);
+      setTimeout(() => setToastMessage(null), 3000);
     }
   };
 
@@ -613,7 +618,10 @@ const AuctionPage = () => {
                 return (
                   <div 
                     key={t.id} 
-                    onClick={() => isEligible ? handleMarkSoldToTeam(t.id, t.teamName) : null}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (isEligible) handleMarkSoldToTeam(t.id, t.teamName);
+                    }}
                     style={{ 
                       padding: '16px',
                       background: 'rgba(255,255,255,0.02)',
