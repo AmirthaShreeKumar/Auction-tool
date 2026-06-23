@@ -57,18 +57,7 @@ const AuctionPage = () => {
     ).length;
   };
 
-  // Dismiss toast on any click anywhere on the page
-  useEffect(() => {
-    if (!toastMessage) return;
-    const dismiss = () => setToastMessage(null);
-    const timer = setTimeout(() => {
-      document.addEventListener('click', dismiss);
-    }, 50);
-    return () => {
-      clearTimeout(timer);
-      document.removeEventListener('click', dismiss);
-    };
-  }, [toastMessage]);
+
 
   useEffect(() => {
     if (currentBid > 0) {
@@ -661,6 +650,7 @@ const AuctionPage = () => {
       {/* Toast Notification */}
       {toastMessage && (
         <div 
+          onClick={() => setToastMessage(null)}
           style={{
             position: 'fixed', 
             top: '20px', 
