@@ -275,7 +275,7 @@ const AuctionPage = () => {
                   <div style={{ display: 'flex', gap: '20px', marginTop: '12px', color: 'var(--color-text-muted)', fontSize: '0.9rem', flexWrap: 'wrap' }}>
                     <span>Gender: <strong style={{ color: 'white' }}>{activePlayer.gender}</strong></span>
                     <span>&bull;</span>
-                    <span>Experience: <strong style={{ color: 'white' }}>{activePlayer.yearsOfExperience !== null && activePlayer.yearsOfExperience !== undefined ? `${activePlayer.yearsOfExperience} Year${activePlayer.yearsOfExperience !== 1 ? 's' : ''}` : '-'}</strong></span>
+                    <span>Experience: <strong style={{ color: 'white' }}>{activePlayer.yearsOfExperience !== null && activePlayer.yearsOfExperience !== undefined && activePlayer.yearsOfExperience !== '' ? `${activePlayer.yearsOfExperience} Year${String(activePlayer.yearsOfExperience) !== '1' ? 's' : ''}` : '-'}</strong></span>
                     <span>&bull;</span>
                     <span>Email: <strong style={{ color: 'white' }}>{activePlayer.email}</strong></span>
                   </div>

@@ -93,7 +93,7 @@ const LandingPage = () => {
         }}>
           Wissen Badminton Premier League
         </h1>
-        
+
         <h2 style={{
           fontSize: '1.4rem',
           fontWeight: '600',
@@ -147,13 +147,14 @@ const LandingPage = () => {
               onClick={() => handleCitySelect(cityObj.key)}
               className="glass-panel"
               style={{
-                padding: '32px 24px',
+                padding: '24px',
                 cursor: 'pointer',
-                textAlign: 'left',
+                textAlign: 'center',
                 display: 'flex',
                 flexDirection: 'column',
-                height: '240px',
-                justifyContent: 'space-between',
+                justifyContent: 'center',
+                alignItems: 'center',
+                height: '180px',
                 position: 'relative',
                 overflow: 'hidden'
               }}
@@ -172,44 +173,17 @@ const LandingPage = () => {
               }} />
 
               <div>
-                <span style={{
-                  fontSize: '0.8rem',
-                  fontWeight: '700',
-                  color: cityObj.accent,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.1em'
-                }}>
-                  {cityObj.code}
-                </span>
-                
                 <h4 style={{
                   fontSize: '1.8rem',
                   fontWeight: '800',
                   color: 'white',
-                  marginTop: '8px',
-                  marginBottom: '8px'
+                  margin: '0'
                 }}>
                   {cityObj.name}
                 </h4>
-                
-                <p style={{
-                  color: 'var(--color-text-muted)',
-                  fontSize: '0.85rem',
-                  lineHeight: '1.4'
-                }}>
-                  {cityObj.desc}
-                </p>
               </div>
 
-              <div style={{
-                fontSize: '0.75rem',
-                color: 'rgba(255, 255, 255, 0.4)',
-                borderTop: '1px solid var(--border-color)',
-                paddingTop: '12px',
-                marginTop: '12px'
-              }}>
-                Arena: {cityObj.stadium}
-              </div>
+
             </div>
           ))}
         </div>

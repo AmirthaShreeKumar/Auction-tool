@@ -67,17 +67,25 @@ public class TeamController {
         return ResponseEntity.noContent().build();
     }
 
-    /** POST /api/{city}/teams/generate-logo – generate a logo with AI (Admin only) */
+    /**
+     * POST /api/{city}/teams/generate-logo – trigger async AI logo generation (Admin only).
+     * Returns 202 Accepted immediately. The SVG is saved to the team once generation completes;
+     * the frontend picks it up on the next team list refresh.
+     */
     @PostMapping("/generate-logo")
     public ResponseEntity<java.util.Map<String, String>> generateLogo(@PathVariable String city,
                                                                        @RequestBody java.util.Map<String, String> request,
                                                                        HttpServletRequest httpReq) {
         String jwtCity = (String) httpReq.getAttribute("jwtCity");
         validateCity(city, jwtCity);
-        String teamName = request.get("teamName");
+        String teamIdStr  = request.get("teamId");
+        String teamName   = request.get("teamName");
         String themeColor = request.get("themeColor");
-        String logoSvg = logoGenerationService.generateLogo(teamName, themeColor);
-        return ResponseEntity.ok(java.util.Map.of("logoSvg", logoSvg));
+        if (teamIdStr == null) {
+            throw new IllegalArgumentException("teamId is required for logo generation.");
+        }
+        logoGenerationService.generateLogoAsync(Long.parseLong(teamIdStr), teamName, themeColor);
+        return ResponseEntity.accepted().body(java.util.Map.of("status", "generating"));
     }
 
     /** POST /api/{city}/teams/{teamId}/release-player – release a player from the team (Admin only) */

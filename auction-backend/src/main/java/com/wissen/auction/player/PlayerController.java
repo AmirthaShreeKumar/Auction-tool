@@ -79,6 +79,16 @@ public class PlayerController {
         return ResponseEntity.noContent().build();
     }
 
+    /** DELETE /api/{city}/players – delete all players for this city (Admin only) */
+    @DeleteMapping
+    public ResponseEntity<Void> deleteAllPlayers(@PathVariable String city,
+                                                  HttpServletRequest httpReq) {
+        String jwtCity = (String) httpReq.getAttribute("jwtCity");
+        validateCity(city, jwtCity);
+        playerService.deleteAllPlayersByCity(jwtCity);
+        return ResponseEntity.noContent().build();
+    }
+
     /** POST /api/{city}/players/import – bulk Excel import (Admin only) */
     @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<List<PlayerDTO>> importPlayers(@PathVariable String city,
@@ -87,6 +97,17 @@ public class PlayerController {
         String jwtCity = (String) httpReq.getAttribute("jwtCity");
         validateCity(city, jwtCity);
         return ResponseEntity.ok(playerService.importFromExcel(file, jwtCity));
+    }
+
+    /** POST /api/{city}/players/{id}/upload-photo – upload player photo (Admin only) */
+    @PostMapping(value = "/{id}/upload-photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<PlayerDTO> uploadPhoto(@PathVariable String city,
+                                                  @PathVariable Long id,
+                                                  @RequestParam("photo") MultipartFile photo,
+                                                  HttpServletRequest httpReq) throws IOException {
+        String jwtCity = (String) httpReq.getAttribute("jwtCity");
+        validateCity(city, jwtCity);
+        return ResponseEntity.ok(playerService.uploadPhoto(id, photo, jwtCity));
     }
 
     private void validateCity(String pathCity, String jwtCity) {

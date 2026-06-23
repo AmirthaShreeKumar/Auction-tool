@@ -12,8 +12,7 @@ const businessRules = {
 export const AppContext = createContext();
 
 export const AppProvider = ({ children }) => {
-  // Auth state
-  const [token, setToken]   = useState(() => localStorage.getItem('wbp_token') || '');
+  // Auth state — token is in HttpOnly cookie, never in JS
   const [city, setCity]     = useState(() => localStorage.getItem('wbp_city')  || '');
   const [role, setRole]     = useState(() => localStorage.getItem('wbp_role')  || '');
   const [username, setUsername] = useState(() => localStorage.getItem('wbp_username') || '');
@@ -36,10 +35,9 @@ export const AppProvider = ({ children }) => {
   // Loading / error
   const [loading, setLoading] = useState(false);
 
-  // ---- Persist auth to localStorage ----
-  useEffect(() => { localStorage.setItem('wbp_token', token); }, [token]);
-  useEffect(() => { localStorage.setItem('wbp_city',  city);  }, [city]);
-  useEffect(() => { localStorage.setItem('wbp_role',  role);  }, [role]);
+  // ---- Persist non-sensitive auth to localStorage (token stays in HttpOnly cookie) ----
+  useEffect(() => { localStorage.setItem('wbp_city', city); }, [city]);
+  useEffect(() => { localStorage.setItem('wbp_role', role); }, [role]);
 
   // ---- Fetch data when city is set ----
   const refreshPlayers = useCallback(async () => {
@@ -48,7 +46,7 @@ export const AppProvider = ({ children }) => {
       const data = await apiFetch(`/api/${city}/players`);
       setPlayers(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error('Failed to load players:', err.message);
+      // Silently ignore if city is not yet set (guest entering before auth)
     }
   }, [city]);
 
@@ -63,19 +61,22 @@ export const AppProvider = ({ children }) => {
   }, [city]);
 
   useEffect(() => {
-    if (city && (token || role === 'guest')) {
+    if (city && (role === 'admin' || role === 'guest')) {
       refreshPlayers();
       refreshTeams();
     }
-  }, [city, token, role, refreshPlayers, refreshTeams]);
+  }, [city, role, refreshPlayers, refreshTeams]);
 
-  // ---- Auto-refresh for guest mode (polling every 10s) ----
+  // ---- Auto-refresh for guest mode ----
+  // Jitter spreads concurrent guests across a 5s window so they don't all
+  // hit the backend at the same instant (thundering herd every 10s).
   useEffect(() => {
     if (role !== 'guest' || !city) return;
+    const jitter = Math.random() * 5000;
     const interval = setInterval(() => {
       refreshPlayers();
       refreshTeams();
-    }, 10000);
+    }, 10000 + jitter);
     return () => clearInterval(interval);
   }, [role, city, refreshPlayers, refreshTeams]);
 
@@ -97,29 +98,32 @@ export const AppProvider = ({ children }) => {
    * Login via backend API. Stores JWT and user info.
    */
   const login = async (usernameInput, password) => {
+    // Backend sets the HttpOnly wbpl_jwt cookie; response body has role/city/username only
     const resp = await apiFetch('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ username: usernameInput, password }),
     });
-    setToken(resp.token);
     setRole(resp.role);
     setCity(resp.city);
     setUsername(resp.username);
-    localStorage.setItem('wbp_token',    resp.token);
     localStorage.setItem('wbp_role',     resp.role);
     localStorage.setItem('wbp_city',     resp.city);
     localStorage.setItem('wbp_username', resp.username);
     return resp;
   };
 
-  const logout = () => {
-    setToken('');
+  const logout = async () => {
+    try {
+      // Ask backend to clear the HttpOnly cookie
+      await apiFetch('/api/auth/logout', { method: 'POST' });
+    } catch {
+      // Proceed even if the logout request fails
+    }
     setRole('');
     setCity('');
     setUsername('');
     setPlayers([]);
     setTeams([]);
-    localStorage.removeItem('wbp_token');
     localStorage.removeItem('wbp_role');
     localStorage.removeItem('wbp_city');
     localStorage.removeItem('wbp_username');
@@ -141,6 +145,11 @@ export const AppProvider = ({ children }) => {
     const newPlayers = await apiUpload(`/api/${city}/players/import`, formData);
     setPlayers(prev => [...prev, ...newPlayers]);
     return newPlayers;
+  };
+
+  const clearAllPlayers = async () => {
+    await apiFetch(`/api/${city}/players`, { method: 'DELETE' });
+    setPlayers([]);
   };
 
   const updatePlayer = async (id, playerData) => {
@@ -169,6 +178,14 @@ export const AppProvider = ({ children }) => {
         purseRemaining: (t.purseRemaining || 0) + (removedPlayer?.soldPrice || removedPlayer?.basePrice || 0),
       };
     }));
+  };
+
+  const uploadPlayerPhoto = async (playerId, photoFile) => {
+    const formData = new FormData();
+    formData.append('photo', photoFile);
+    const updated = await apiUpload(`/api/${city}/players/${playerId}/upload-photo`, formData);
+    setPlayers(prev => prev.map(p => p.id === playerId ? updated : p));
+    return updated;
   };
 
   // ---- Team CRUD ----
@@ -305,18 +322,27 @@ export const AppProvider = ({ children }) => {
 
   const passPlayer = async () => {
     if (!activePlayer) return;
+    const passedPlayerId = activePlayer.id;
+
+    // Optimistic update: immediately mark player as UNSOLD locally
+    // so the auction queue re-computes and the UI advances instantly.
+    // The backend pass endpoint marks the player as UNSOLD and clears bid logs.
+    setPlayers(prev => prev.map(p =>
+      p.id === passedPlayerId
+        ? { ...p, status: 'PASSED' }
+        : p
+    ));
+
+    // Fire backend call in the background — don't await before advancing UI
     try {
-      const passedPlayerId = activePlayer.id;
       await apiFetch(`/api/${city}/auction/pass`, {
         method: 'POST',
         body: JSON.stringify({ playerId: passedPlayerId }),
       });
-      // Optimistically mark player as PASSED locally
-      setPlayers(prev => prev.map(p =>
-        p.id === passedPlayerId ? { ...p, status: 'PASSED' } : p
-      ));
     } catch (err) {
       console.error('Pass failed:', err.message);
+      // Revert optimistic update on failure
+      await refreshPlayers();
     }
   };
 
@@ -363,9 +389,10 @@ export const AppProvider = ({ children }) => {
       setHighestBidderTeam(null);
       setHighestBidderTeamId(null);
 
-      // The queue will shrink by 1 after the sold player is removed.
-      // The clamping useEffect above will auto-correct if index goes out of bounds.
-      // No manual index adjustment needed here.
+      // Re-fetch from backend to reconcile optimistic state with the DB truth.
+      // If the backend rejected part of the write, the refresh will surface the real values.
+      await Promise.all([refreshPlayers(), refreshTeams()]);
+
       return { success: true };
     } catch (err) {
       return { success: false, message: err.message };
@@ -399,8 +426,8 @@ export const AppProvider = ({ children }) => {
 
   return (
     <AppContext.Provider value={{
-      // Auth
-      token, city, role, username,
+      // Auth — token is in HttpOnly cookie, not exposed to JS
+      city, role, username,
       login, logout,
       // Data
       players, teams,
@@ -418,7 +445,7 @@ export const AppProvider = ({ children }) => {
       auctionGenderFilter,
       setAuctionGenderFilter,
       // Player CRUD
-      addPlayer, importPlayersFromExcel, updatePlayer, deletePlayer,
+      addPlayer, importPlayersFromExcel, updatePlayer, deletePlayer, clearAllPlayers, uploadPlayerPhoto,
       // Team CRUD
       createTeam, updateTeam, deleteTeam, releasePlayerFromTeam,
       // Auction actions

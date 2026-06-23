@@ -25,8 +25,7 @@ public class PlayerRequest {
     @NotBlank
     private String skillLevel;      // "Beginner" | "Intermediate" | "Advanced"
 
-    @Min(0) @Max(50)
-    private Integer yearsOfExperience;
+    private String yearsOfExperience;
 
     private String mobileNumber;
 

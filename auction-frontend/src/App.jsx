@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Layouts
 import MainLayout from './layouts/MainLayout';
@@ -18,6 +19,7 @@ import BiddingRulesPage from './pages/BiddingRulesPage';
 
 function App() {
   return (
+    <ErrorBoundary>
     <AppProvider>
       <BrowserRouter>
         <Routes>
@@ -41,6 +43,7 @@ function App() {
         </Routes>
       </BrowserRouter>
     </AppProvider>
+    </ErrorBoundary>
   );
 }
 

@@ -24,5 +24,6 @@ public class BidRequest {
     private Integer bidAmount;
 
     /** Increment type: 500 or 1000 */
+    @NotNull
     private Integer increment;
 }

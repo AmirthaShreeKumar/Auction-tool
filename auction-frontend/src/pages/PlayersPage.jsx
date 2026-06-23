@@ -1,11 +1,11 @@
-import React, { useContext, useState, useEffect } from 'react';
+import React, { useContext, useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { AppContext } from '../context/AppContext';
-import { Plus, UserPlus, Filter, X, Search } from 'lucide-react';
+import { Plus, UserPlus, Filter, X, Search, Upload, Camera, Trash2 } from 'lucide-react';
 
 const PlayersPage = () => {
   const { city, role } = useParams();
-  const { players, addPlayer, importPlayersFromExcel, updatePlayer, deletePlayer } = useContext(AppContext);
+  const { players, addPlayer, importPlayersFromExcel, updatePlayer, deletePlayer, clearAllPlayers, uploadPlayerPhoto } = useContext(AppContext);
 
   const [skillFilter, setSkillFilter]   = useState('All');
   const [searchQuery, setSearchQuery]   = useState('');
@@ -36,14 +36,17 @@ const PlayersPage = () => {
   const [email, setEmail] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
   const [gender, setGender] = useState('Male');
   const [skillLevel, setSkillLevel] = useState('Beginner');
-  const [yearsOfExperience, setYearsOfExperience] = useState(1);
+  const [yearsOfExperience, setYearsOfExperience] = useState('1');
   const [basePrice, setBasePrice] = useState(2000);
   const [matchesPlayed, setMatchesPlayed] = useState('');
   const [matchesWon, setMatchesWon] = useState('');
   const [matchesLost, setMatchesLost] = useState('');
   const [showStats, setShowStats] = useState(false);
+  const photoInputRef = useRef(null);
 
   // Filter players by City
   const cityPlayers = players.filter(p => p.location.toLowerCase() === city.toLowerCase());
@@ -58,6 +61,36 @@ const PlayersPage = () => {
     p.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.wissenId.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Handle photo file selection with validation
+  const handlePhotoSelect = (file) => {
+    if (!file) return;
+    
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      setToastMessage({ text: 'Invalid file type. Please upload JPG, PNG, WebP, or GIF.', type: 'error' });
+      setTimeout(() => setToastMessage(null), 3000);
+      return;
+    }
+    
+    // Validate file size (2MB max)
+    if (file.size > 2 * 1024 * 1024) {
+      setToastMessage({ text: 'Photo must be under 2MB. Please compress or resize.', type: 'error' });
+      setTimeout(() => setToastMessage(null), 3000);
+      return;
+    }
+    
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+  };
+
+  const clearPhoto = () => {
+    setPhotoFile(null);
+    if (photoPreview) URL.revokeObjectURL(photoPreview);
+    setPhotoPreview(null);
+    if (photoInputRef.current) photoInputRef.current.value = '';
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -83,10 +116,10 @@ const PlayersPage = () => {
       fullName,
       email,
       mobileNumber,
-      imageUrl,
+      imageUrl: photoFile ? '' : imageUrl,
       gender,
       skillLevel,
-      yearsOfExperience: parseInt(yearsOfExperience),
+      yearsOfExperience: yearsOfExperience ? yearsOfExperience.toString() : "",
       basePrice: parseInt(basePrice),
       location: city,
       matchesPlayed: showStats && matchesPlayed !== '' ? parseInt(matchesPlayed) : null,
@@ -95,15 +128,23 @@ const PlayersPage = () => {
     };
 
     try {
+      let savedPlayer;
       if (editingPlayer) {
-        await updatePlayer(editingPlayer.id, payload);
+        savedPlayer = await updatePlayer(editingPlayer.id, payload);
+        // Upload photo after save if one was selected (overwrites imageUrl with Base64 data URI)
+        if (photoFile) {
+          savedPlayer = await uploadPlayerPhoto(editingPlayer.id, photoFile);
+        }
         setToastMessage({ text: `Player ${fullName} updated`, type: 'success' });
-        // Update selectedPlayer if it's currently showing
         if (selectedPlayer && selectedPlayer.id === editingPlayer.id) {
-          setSelectedPlayer({ ...selectedPlayer, ...payload, stats: payload.matchesPlayed !== null ? { matchesPlayed: payload.matchesPlayed, matchesWon: payload.matchesWon, matchesLost: payload.matchesLost } : null });
+          setSelectedPlayer({ ...selectedPlayer, ...savedPlayer });
         }
       } else {
-        await addPlayer(payload);
+        savedPlayer = await addPlayer(payload);
+        // Upload photo after create if one was selected
+        if (photoFile && savedPlayer?.id) {
+          savedPlayer = await uploadPlayerPhoto(savedPlayer.id, photoFile);
+        }
         setToastMessage({ text: `Player ${fullName} added to ${city.toUpperCase()} draft`, type: 'success' });
       }
 
@@ -141,9 +182,10 @@ const PlayersPage = () => {
     setEmail('');
     setMobileNumber('');
     setImageUrl('');
+    clearPhoto();
     setGender('Male');
     setSkillLevel('Beginner');
-    setYearsOfExperience(1);
+    setYearsOfExperience('1');
     setBasePrice(2000);
     setMatchesPlayed('');
     setMatchesWon('');
@@ -158,7 +200,9 @@ const PlayersPage = () => {
     setFullName(player.fullName);
     setEmail(player.email);
     setMobileNumber(player.mobileNumber || '');
-    setImageUrl(player.imageUrl || '');
+    // If existing image is a data URI (uploaded), show blank URL field; image is already stored
+    setImageUrl(player.imageUrl && !player.imageUrl.startsWith('data:') ? player.imageUrl : '');
+    clearPhoto();
     setGender(player.gender);
     setSkillLevel(player.skillLevel);
     setYearsOfExperience(player.yearsOfExperience);
@@ -209,14 +253,36 @@ const PlayersPage = () => {
           <p className="page-subtitle">Manage and review badminton players registered in {city.toUpperCase()} draft.</p>
         </div>
         {role === 'admin' && (
-          <button 
-            onClick={() => { resetForm(); setShowAddModal(true); }} 
-            className="btn btn-primary"
-            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-          >
-            <UserPlus size={16} />
-            Add Player
-          </button>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              onClick={async () => {
+                const count = cityPlayers.length;
+                if (count === 0) return;
+                if (!window.confirm(`Delete all ${count} players in ${city.toUpperCase()}? This cannot be undone.`)) return;
+                try {
+                  await clearAllPlayers();
+                  setToastMessage({ text: `All ${count} players deleted`, type: 'success' });
+                  setTimeout(() => setToastMessage(null), 2000);
+                } catch (err) {
+                  setToastMessage({ text: err.message || 'Failed to delete players', type: 'error' });
+                  setTimeout(() => setToastMessage(null), 3000);
+                }
+              }}
+              className="btn btn-secondary"
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#ef4444', borderColor: '#ef4444' }}
+              disabled={cityPlayers.length === 0}
+            >
+              Clear All Players
+            </button>
+            <button
+              onClick={() => { resetForm(); setShowAddModal(true); }}
+              className="btn btn-primary"
+              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+            >
+              <UserPlus size={16} />
+              Add Player
+            </button>
+          </div>
         )}
       </div>
 
@@ -298,7 +364,7 @@ const PlayersPage = () => {
                     {player.skillLevel}
                   </span>
                 </td>
-                <td style={{ textAlign: 'center' }}>{player.yearsOfExperience !== null && player.yearsOfExperience !== undefined ? `${player.yearsOfExperience} yr${player.yearsOfExperience !== 1 ? 's' : ''}` : '-'}</td>
+                <td style={{ textAlign: 'center' }}>{player.yearsOfExperience !== null && player.yearsOfExperience !== undefined && player.yearsOfExperience !== '' ? `${player.yearsOfExperience} yr${String(player.yearsOfExperience) !== '1' ? 's' : ''}` : '-'}</td>
                 <td style={{ fontWeight: '600', color: 'var(--color-secondary)' }}>{player.basePrice.toLocaleString()} pts</td>
                 <td>
                   <span className={getStatusPillClass(player.status)}>
@@ -429,15 +495,137 @@ const PlayersPage = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Image URL</label>
+                  <label className="form-label" style={{ opacity: photoFile ? 0.5 : 1 }}>Image URL</label>
                   <input 
                     type="url" 
                     className="form-input" 
                     placeholder="https://..." 
                     value={imageUrl}
                     onChange={(e) => setImageUrl(e.target.value)}
+                    disabled={!!photoFile}
+                    style={photoFile ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
                   />
                 </div>
+              </div>
+
+              {/* Photo Upload Section */}
+              <div className="form-group" style={{ marginTop: '4px' }}>
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Camera size={14} />
+                  Upload Photo
+                  <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', fontWeight: 400 }}>(overrides URL)</span>
+                </label>
+
+                {/* Hidden file input */}
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  style={{ display: 'none' }}
+                  onChange={(e) => handlePhotoSelect(e.target.files[0])}
+                />
+
+                {!photoFile ? (
+                  /* Drop zone / click-to-upload */
+                  <div
+                    onClick={() => photoInputRef.current?.click()}
+                    onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--color-primary)'; }}
+                    onDragLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-color)'; }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.style.borderColor = 'var(--border-color)';
+                      if (e.dataTransfer.files[0]) handlePhotoSelect(e.dataTransfer.files[0]);
+                    }}
+                    style={{
+                      border: '2px dashed var(--border-color)',
+                      borderRadius: '10px',
+                      padding: '20px',
+                      textAlign: 'center',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      background: 'rgba(255,255,255,0.02)',
+                    }}
+                  >
+                    <Upload size={24} style={{ color: 'var(--color-text-muted)', marginBottom: '6px' }} />
+                    <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+                      Click to upload or drag & drop
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', marginTop: '4px', opacity: 0.7 }}>
+                      Max 2MB · JPG, PNG, WebP, GIF
+                    </div>
+                  </div>
+                ) : (
+                  /* Preview of selected photo */
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    padding: '10px 14px',
+                    background: 'rgba(163, 230, 53, 0.08)',
+                    border: '1px solid rgba(163, 230, 53, 0.3)',
+                    borderRadius: '10px',
+                  }}>
+                    <img
+                      src={photoPreview}
+                      alt="Preview"
+                      style={{
+                        width: '48px',
+                        height: '48px',
+                        borderRadius: '8px',
+                        objectFit: 'cover',
+                        border: '1px solid var(--border-color)',
+                      }}
+                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '0.85rem', color: 'white', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {photoFile.name}
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                        {(photoFile.size / 1024).toFixed(0)} KB
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={clearPhoto}
+                      style={{
+                        background: 'rgba(239, 68, 68, 0.15)',
+                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                        borderRadius: '6px',
+                        padding: '6px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        color: '#ef4444',
+                      }}
+                      title="Remove photo"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                )}
+
+                {/* Current image indicator when editing */}
+                {editingPlayer && editingPlayer.imageUrl && !photoFile && (
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '8px', 
+                    marginTop: '8px',
+                    padding: '6px 10px',
+                    background: 'rgba(255,255,255,0.03)',
+                    borderRadius: '6px',
+                    fontSize: '0.75rem',
+                    color: 'var(--color-text-muted)'
+                  }}>
+                    <img
+                      src={editingPlayer.imageUrl}
+                      alt="Current"
+                      style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }}
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
+                    Current photo set · upload new to replace
+                  </div>
+                )}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -477,10 +665,9 @@ const PlayersPage = () => {
                 <div className="form-group">
                   <label className="form-label">Experience (Years)</label>
                   <input 
-                    type="number" 
-                    min="0"
-                    max="30"
+                    type="text" 
                     className="form-input" 
+                    placeholder="e.g. 4+ or 3"
                     value={yearsOfExperience}
                     onChange={(e) => setYearsOfExperience(e.target.value)}
                     required 

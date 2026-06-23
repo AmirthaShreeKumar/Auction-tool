@@ -1,34 +1,20 @@
-/**
- * api.js – centralized API base URL configuration.
- *
- * In development: reads from VITE_API_URL environment variable or falls back to localhost.
- * In production: set VITE_API_URL in your deployment platform (Vercel, Netlify, etc.)
- *
- * To configure locally: create a .env.local file in auction-frontend/:
- *   VITE_API_URL=http://localhost:8080
- */
-
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
 /**
- * Makes an authenticated API call using the stored JWT token.
- *
- * @param {string} path - API path (e.g. '/api/pune/players')
- * @param {RequestInit} options - fetch options
- * @returns {Promise<any>} parsed JSON response
+ * Makes an authenticated API call. Auth is carried by the HttpOnly cookie
+ * set on login — never read or written by JavaScript. credentials:'include'
+ * tells the browser to attach it automatically on every cross-origin request.
  */
 export async function apiFetch(path, options = {}) {
-  const token = localStorage.getItem('wbp_token');
-
   const headers = {
     'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(options.headers || {}),
   };
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers,
+    credentials: 'include', // sends the HttpOnly wbpl_jwt cookie
   });
 
   if (!response.ok) {
@@ -42,7 +28,6 @@ export async function apiFetch(path, options = {}) {
     throw new Error(errorMsg);
   }
 
-  // Handle 204 No Content
   if (response.status === 204) return null;
 
   return response.json();
@@ -52,15 +37,11 @@ export async function apiFetch(path, options = {}) {
  * Upload a file (multipart) to the API.
  */
 export async function apiUpload(path, formData) {
-  const token = localStorage.getItem('wbp_token');
-
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: 'POST',
-    headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      // Do NOT set Content-Type – browser sets it automatically with boundary
-    },
+    // Do NOT set Content-Type – browser sets it automatically with boundary
     body: formData,
+    credentials: 'include',
   });
 
   if (!response.ok) {

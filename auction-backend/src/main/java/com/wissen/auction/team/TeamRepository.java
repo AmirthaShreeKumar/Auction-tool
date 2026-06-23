@@ -1,6 +1,8 @@
 package com.wissen.auction.team;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -8,6 +10,9 @@ import java.util.Optional;
 public interface TeamRepository extends JpaRepository<Team, Long> {
 
     List<Team> findByLocationIgnoreCase(String location);
+
+    @Query("SELECT DISTINCT t FROM Team t LEFT JOIN FETCH t.players WHERE LOWER(t.location) = LOWER(:city)")
+    List<Team> findByLocationWithPlayers(@Param("city") String city);
 
     Optional<Team> findByTeamNameIgnoreCaseAndLocationIgnoreCase(String teamName, String location);
 

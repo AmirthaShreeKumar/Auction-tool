@@ -1,8 +1,8 @@
 package com.wissen.auction.team;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import com.google.genai.Client;
@@ -18,8 +18,27 @@ import java.util.List;
 @RequiredArgsConstructor
 public class LogoGenerationService {
 
-    @Value("${gemini.api.key}")
+    @Value("${gemini.api.key:}")
     private String apiKey;
+
+    private final TeamRepository teamRepository;
+
+    /**
+     * Fire-and-forget: generates a logo in a background thread and persists it on the team.
+     * The caller receives a 202 immediately; the frontend picks up the SVG on next team refresh.
+     */
+    @Async
+    public void generateLogoAsync(Long teamId, String teamName, String themeColor) {
+        try {
+            String svg = generateLogo(teamName, themeColor);
+            teamRepository.findById(teamId).ifPresent(team -> {
+                team.setLogoSvg(svg);
+                teamRepository.save(team);
+            });
+        } catch (Exception e) {
+            System.err.println("[AI Logo] Async generation failed for team " + teamId + ": " + e.getMessage());
+        }
+    }
 
     public String generateLogo(String teamName, String themeColor) {
         if (apiKey == null || apiKey.trim().isEmpty()) {
