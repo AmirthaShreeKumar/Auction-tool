@@ -25,7 +25,8 @@ import java.util.stream.Collectors;
  * PlayerService – all business logic for player management.
  *
  * Column order expected in Excel upload:
- * wissenId | fullName | email | gender | skillLevel | yearsOfExperience | basePrice
+ * wissenId | fullName | email | gender | skillLevel | yearsOfExperience |
+ * basePrice
  */
 @Service
 @RequiredArgsConstructor
@@ -145,8 +146,7 @@ public class PlayerService {
 
     private static final long MAX_PHOTO_SIZE = 2 * 1024 * 1024; // 2MB
     private static final Set<String> ALLOWED_IMAGE_TYPES = Set.of(
-            "image/jpeg", "image/png", "image/webp", "image/gif"
-    );
+            "image/jpeg", "image/png", "image/webp", "image/gif");
 
     /**
      * Upload a photo for a player. Converts the file to a Base64 data URI
@@ -214,7 +214,8 @@ public class PlayerService {
                 int bestRowIdx = -1;
                 for (int r = 0; r <= Math.min(currentSheet.getLastRowNum(), 15); r++) {
                     Row currentRow = currentSheet.getRow(r);
-                    if (currentRow == null) continue;
+                    if (currentRow == null)
+                        continue;
                     int score = scoreHeaderRow(currentRow);
                     if (score > bestScore) {
                         bestScore = score;
@@ -253,10 +254,12 @@ public class PlayerService {
 
             for (int col = 0; col < headerRow.getLastCellNum(); col++) {
                 Cell cell = headerRow.getCell(col);
-                if (cell == null) continue;
+                if (cell == null)
+                    continue;
                 String rawHeader = getCellString(headerRow, col);
                 String header = normalizeHeader(rawHeader);
-                if (header.isEmpty()) continue;
+                if (header.isEmpty())
+                    continue;
 
                 switch (header) {
                     case "id" -> excelIdCol = col;
@@ -281,8 +284,10 @@ public class PlayerService {
             }
 
             for (Row row : sheet) {
-                if (row.getRowNum() <= headerRowIndex) continue; // skip header row and any metadata rows above it
-                if (isRowBlank(row)) continue;      // skip completely blank/empty rows
+                if (row.getRowNum() <= headerRowIndex)
+                    continue; // skip header row and any metadata rows above it
+                if (isRowBlank(row))
+                    continue; // skip completely blank/empty rows
 
                 // 1. Process Email
                 String email = "";
@@ -326,7 +331,8 @@ public class PlayerService {
                     genderStr = getCellStringSafe(row, genderCol).toUpperCase().trim();
                 }
                 Player.Gender gender = Player.Gender.Male;
-                if (genderStr.equals("FEMALE") || genderStr.equals("F") || genderStr.startsWith("FEM") || genderStr.equals("WOMAN") || genderStr.equals("WOMEN") || genderStr.equals("W")) {
+                if (genderStr.equals("FEMALE") || genderStr.equals("F") || genderStr.startsWith("FEM")
+                        || genderStr.equals("WOMAN") || genderStr.equals("WOMEN") || genderStr.equals("W")) {
                     gender = Player.Gender.Female;
                 }
 
@@ -336,9 +342,11 @@ public class PlayerService {
                     skillLevelStr = getCellStringSafe(row, skillCol).toUpperCase().trim();
                 }
                 Player.SkillLevel skillLevel = Player.SkillLevel.Beginner;
-                if (skillLevelStr.contains("INTERMEDIATE") || skillLevelStr.equals("I") || skillLevelStr.startsWith("INTER")) {
+                if (skillLevelStr.contains("INTERMEDIATE") || skillLevelStr.equals("I")
+                        || skillLevelStr.startsWith("INTER")) {
                     skillLevel = Player.SkillLevel.Intermediate;
-                } else if (skillLevelStr.contains("ADVANCED") || skillLevelStr.equals("A") || skillLevelStr.startsWith("ADV")) {
+                } else if (skillLevelStr.contains("ADVANCED") || skillLevelStr.equals("A")
+                        || skillLevelStr.startsWith("ADV")) {
                     skillLevel = Player.SkillLevel.Advanced;
                 }
 
@@ -370,10 +378,13 @@ public class PlayerService {
                 }
 
                 int basePrice = 2000;
-                if (skillLevel == Player.SkillLevel.Intermediate) basePrice = 5000;
-                else if (skillLevel == Player.SkillLevel.Advanced) basePrice = 8000;
+                if (skillLevel == Player.SkillLevel.Intermediate)
+                    basePrice = 5000;
+                else if (skillLevel == Player.SkillLevel.Advanced)
+                    basePrice = 8000;
 
-                // Retrieve player from toSaveMap (if duplicated in Excel) or database (if already exists)
+                // Retrieve player from toSaveMap (if duplicated in Excel) or database (if
+                // already exists)
                 Player player = toSaveMap.get(wissenId);
                 if (player == null) {
                     player = playerRepository.findByWissenId(wissenId).orElse(null);
@@ -411,7 +422,8 @@ public class PlayerService {
     @Transactional
     public int deleteAllPlayersByCity(String city) {
         List<Player> players = playerRepository.findByLocationIgnoreCase(city);
-        if (players.isEmpty()) return 0;
+        if (players.isEmpty())
+            return 0;
         bidLogRepository.deleteByPlayerIn(players);
         playerRepository.deleteAll(players);
         return players.size();
@@ -444,21 +456,24 @@ public class PlayerService {
 
     private String getCellString(Row row, int col) {
         Cell cell = row.getCell(col);
-        if (cell == null) return "";
+        if (cell == null)
+            return "";
         return switch (cell.getCellType()) {
-            case STRING  -> cell.getStringCellValue().trim();
+            case STRING -> cell.getStringCellValue().trim();
             case NUMERIC -> String.valueOf((long) cell.getNumericCellValue());
-            default      -> "";
+            default -> "";
         };
     }
 
     private String getCellStringSafe(Row row, int col) {
-        if (col < 0 || row == null) return "";
+        if (col < 0 || row == null)
+            return "";
         Cell cell = row.getCell(col);
-        if (cell == null) return "";
+        if (cell == null)
+            return "";
         try {
             return switch (cell.getCellType()) {
-                case STRING  -> cell.getStringCellValue().trim();
+                case STRING -> cell.getStringCellValue().trim();
                 case NUMERIC -> {
                     double val = cell.getNumericCellValue();
                     if (val == (long) val) {
@@ -480,7 +495,7 @@ public class PlayerService {
                     }
                 }
                 case BOOLEAN -> String.valueOf(cell.getBooleanCellValue());
-                default      -> "";
+                default -> "";
             };
         } catch (Exception e) {
             return "";
@@ -488,42 +503,49 @@ public class PlayerService {
     }
 
     private double getCellNumericSafe(Row row, int col) {
-        if (col < 0 || row == null) return 0;
+        if (col < 0 || row == null)
+            return 0;
         Cell cell = row.getCell(col);
-        if (cell == null) return 0;
+        if (cell == null)
+            return 0;
         return cell.getCellType() == CellType.NUMERIC ? cell.getNumericCellValue() : 0;
     }
 
     private int scoreHeaderRow(Row row) {
-        if (row == null) return 0;
+        if (row == null)
+            return 0;
         int score = 0;
         for (int col = 0; col < row.getLastCellNum(); col++) {
             Cell cell = row.getCell(col);
-            if (cell == null) continue;
+            if (cell == null)
+                continue;
             String val = "";
             try {
                 val = switch (cell.getCellType()) {
-                    case STRING  -> cell.getStringCellValue().trim();
+                    case STRING -> cell.getStringCellValue().trim();
                     case NUMERIC -> String.valueOf((long) cell.getNumericCellValue());
-                    default      -> "";
+                    default -> "";
                 };
             } catch (Exception e) {
                 // ignore
             }
             String header = normalizeHeader(val);
-            if (header.isEmpty()) continue;
+            if (header.isEmpty())
+                continue;
             switch (header) {
                 case "id", "wissenid", "employeeid", "fullname", "employeename", "name",
-                     "email", "emailid", "gender", "whatisyourskilllevel", "badmintonskilllevel",
-                     "skilllevel", "mobilenumber", "mobile", "mobileno", "yearsofplayingexperience",
-                     "yearsofexperience", "experience", "uploadyourimage", "imageurl", "image" -> score++;
+                        "email", "emailid", "gender", "whatisyourskilllevel", "badmintonskilllevel",
+                        "skilllevel", "mobilenumber", "mobile", "mobileno", "yearsofplayingexperience",
+                        "yearsofexperience", "experience", "uploadyourimage", "imageurl", "image" ->
+                    score++;
             }
         }
         return score;
     }
 
     private boolean isRowBlank(Row row) {
-        if (row == null) return true;
+        if (row == null)
+            return true;
         for (int col = 0; col < row.getLastCellNum(); col++) {
             Cell cell = row.getCell(col);
             if (cell != null && cell.getCellType() != CellType.BLANK) {
@@ -540,7 +562,8 @@ public class PlayerService {
     }
 
     private String normalizeHeader(String header) {
-        if (header == null) return "";
+        if (header == null)
+            return "";
         return header.replaceAll("[^a-zA-Z0-9]", "").toLowerCase();
     }
 }
