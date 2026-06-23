@@ -355,10 +355,6 @@ export const AppProvider = ({ children }) => {
     const soldPrice = currentBid;
     const soldPlayer = activePlayer;
 
-    // Capture current state for rollback
-    const previousPlayers = players;
-    const previousTeams = teams;
-
     // Optimistic update: mark player as SOLD locally
     setPlayers(prev => prev.map(p =>
       p.id === soldPlayerId
@@ -393,15 +389,31 @@ export const AppProvider = ({ children }) => {
         finalPrice: soldPrice,
       }),
     })
-      .then(() => {
-        // Re-fetch from backend to reconcile optimistic state with the DB truth.
-        return Promise.all([refreshPlayers(), refreshTeams()]);
-      })
       .catch((err) => {
         console.error('Sell failed, reverting optimistic state:', err.message);
-        // Revert optimistic state on failure
-        setPlayers(previousPlayers);
-        setTeams(previousTeams);
+        
+        // Revert only the specific player status to UNSOLD
+        setPlayers(prev => prev.map(p =>
+          p.id === soldPlayerId
+            ? { ...p, status: 'UNSOLD', soldPrice: null, soldTeamId: null }
+            : p
+        ));
+
+        // Revert only the specific team purse and counters
+        setTeams(prev => prev.map(t => {
+          if (t.id !== teamId) return t;
+          const isFemale = soldPlayer.gender === 'Female';
+          const isBeginner = soldPlayer.skillLevel === 'Beginner';
+          return {
+            ...t,
+            purseRemaining: (t.purseRemaining || 0) + soldPrice,
+            totalPlayers: Math.max(0, (t.totalPlayers || 0) - 1),
+            femalePlayers: Math.max(0, (t.femalePlayers || 0) - (isFemale ? 1 : 0)),
+            beginnerPlayers: Math.max(0, (t.beginnerPlayers || 0) - (isBeginner ? 1 : 0)),
+            players: (t.players || []).filter(p => p.id !== soldPlayerId),
+          };
+        }));
+
         // Trigger failure callback if provided
         if (onFailure) {
           onFailure(err.message || 'Server error');
