@@ -75,6 +75,10 @@ const AuctionPage = () => {
     setImgError(false);
   }, [activePlayer]);
 
+  useEffect(() => {
+    console.log("[WBPL Debug] toastMessage changed:", toastMessage);
+  }, [toastMessage]);
+
   // Filter teams by city
   const cityTeams = teams.filter(t => t.location.toLowerCase() === city.toLowerCase());
 
@@ -93,17 +97,32 @@ const AuctionPage = () => {
   };
 
   const handleMarkSoldToTeam = async (teamId, teamName) => {
+    console.log("[WBPL Debug] handleMarkSoldToTeam called with:", { teamId, teamName });
     setBiddingError('');
     const playerSold = activePlayer?.fullName;
     const amountSold = currentBid;
 
-    const res = await markSold(teamId);
+    console.log("[WBPL Debug] Calling markSold for:", { playerSold, amountSold });
+    const res = await markSold(teamId, (errorMsg) => {
+      console.log("[WBPL Debug] Background markSold failed:", errorMsg);
+      setToastMessage({ text: `Failed to sell ${playerSold}: ${errorMsg}`, type: 'error' });
+      setTimeout(() => {
+        setToastMessage(null);
+      }, 5000);
+    });
+    console.log("[WBPL Debug] markSold response:", res);
+
     if (res && !res.success) {
+      console.log("[WBPL Debug] markSold failed:", res.message);
       setBiddingError(res.message);
     } else {
+      console.log("[WBPL Debug] markSold succeeded, setting toast...");
       setShowTeamModal(false);
       setToastMessage({ text: `${playerSold} sold to ${teamName} for ${amountSold.toLocaleString()} pts`, type: 'success' });
-      setTimeout(() => setToastMessage(null), 3000);
+      setTimeout(() => {
+        console.log("[WBPL Debug] Timeout reached, clearing toast");
+        setToastMessage(null);
+      }, 3000);
     }
   };
 

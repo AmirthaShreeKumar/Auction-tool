@@ -346,57 +346,69 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  const markSold = async (teamId) => {
+  const markSold = async (teamId, onFailure) => {
     if (!activePlayer || !teamId) {
       return { success: false, message: 'Invalid player or team selected.' };
     }
-    try {
-      const soldPlayerId = activePlayer.id;
-      const soldPrice = currentBid;
-      const soldPlayer = activePlayer;
 
-      await apiFetch(`/api/${city}/auction/sell`, {
-        method: 'POST',
-        body: JSON.stringify({
-          playerId: soldPlayerId,
-          teamId: teamId,
-          finalPrice: soldPrice,
-        }),
+    const soldPlayerId = activePlayer.id;
+    const soldPrice = currentBid;
+    const soldPlayer = activePlayer;
+
+    // Capture current state for rollback
+    const previousPlayers = players;
+    const previousTeams = teams;
+
+    // Optimistic update: mark player as SOLD locally
+    setPlayers(prev => prev.map(p =>
+      p.id === soldPlayerId
+        ? { ...p, status: 'SOLD', soldPrice: soldPrice, soldTeamId: teamId }
+        : p
+    ));
+
+    // Optimistic update: update team purse and counters locally
+    setTeams(prev => prev.map(t => {
+      if (t.id !== teamId) return t;
+      const isFemale = soldPlayer.gender === 'Female';
+      const isBeginner = soldPlayer.skillLevel === 'Beginner';
+      return {
+        ...t,
+        purseRemaining: (t.purseRemaining || 0) - soldPrice,
+        totalPlayers: (t.totalPlayers || 0) + 1,
+        femalePlayers: (t.femalePlayers || 0) + (isFemale ? 1 : 0),
+        beginnerPlayers: (t.beginnerPlayers || 0) + (isBeginner ? 1 : 0),
+        players: [...(t.players || []), { ...soldPlayer, status: 'SOLD', soldPrice: soldPrice }],
+      };
+    }));
+
+    setHighestBidderTeam(null);
+    setHighestBidderTeamId(null);
+
+    // Fire network request asynchronously in the background
+    apiFetch(`/api/${city}/auction/sell`, {
+      method: 'POST',
+      body: JSON.stringify({
+        playerId: soldPlayerId,
+        teamId: teamId,
+        finalPrice: soldPrice,
+      }),
+    })
+      .then(() => {
+        // Re-fetch from backend to reconcile optimistic state with the DB truth.
+        return Promise.all([refreshPlayers(), refreshTeams()]);
+      })
+      .catch((err) => {
+        console.error('Sell failed, reverting optimistic state:', err.message);
+        // Revert optimistic state on failure
+        setPlayers(previousPlayers);
+        setTeams(previousTeams);
+        // Trigger failure callback if provided
+        if (onFailure) {
+          onFailure(err.message || 'Server error');
+        }
       });
 
-      // Optimistic update: mark player as SOLD locally
-      setPlayers(prev => prev.map(p =>
-        p.id === soldPlayerId
-          ? { ...p, status: 'SOLD', soldPrice: soldPrice, soldTeamId: teamId }
-          : p
-      ));
-
-      // Optimistic update: update team purse and counters locally
-      setTeams(prev => prev.map(t => {
-        if (t.id !== teamId) return t;
-        const isFemale = soldPlayer.gender === 'Female';
-        const isBeginner = soldPlayer.skillLevel === 'Beginner';
-        return {
-          ...t,
-          purseRemaining: (t.purseRemaining || 0) - soldPrice,
-          totalPlayers: (t.totalPlayers || 0) + 1,
-          femalePlayers: (t.femalePlayers || 0) + (isFemale ? 1 : 0),
-          beginnerPlayers: (t.beginnerPlayers || 0) + (isBeginner ? 1 : 0),
-          players: [...(t.players || []), { ...soldPlayer, status: 'SOLD', soldPrice: soldPrice }],
-        };
-      }));
-
-      setHighestBidderTeam(null);
-      setHighestBidderTeamId(null);
-
-      // Re-fetch from backend to reconcile optimistic state with the DB truth.
-      // If the backend rejected part of the write, the refresh will surface the real values.
-      await Promise.all([refreshPlayers(), refreshTeams()]);
-
-      return { success: true };
-    } catch (err) {
-      return { success: false, message: err.message };
-    }
+    return { success: true };
   };
 
   const nextPlayer = () => {
