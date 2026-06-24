@@ -300,7 +300,7 @@ export const AppProvider = ({ children }) => {
       setHighestBidderTeam(null);
       setHighestBidderTeamId(null);
     }
-  }, [activePlayer?.id, currentAuctionIndex]);
+  }, [activePlayer?.id, currentAuctionIndex, city]);
 
   // ---- Bidding (Local State Only) ----
   const increaseBid = async (amount = 500) => {

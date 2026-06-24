@@ -1,6 +1,7 @@
 package com.wissen.auction.player;
 
 import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
@@ -17,6 +18,7 @@ public interface PlayerRepository extends JpaRepository<Player, Long> {
     @Query("SELECT p FROM Player p WHERE p.id = :id")
     Optional<Player> findByIdForUpdate(@Param("id") Long id);
 
+    @EntityGraph(attributePaths = {"soldTeam", "stats"})
     List<Player> findByLocationIgnoreCase(String location);
 
     List<Player> findByLocationIgnoreCaseAndStatus(String location, Player.PlayerStatus status);
@@ -32,6 +34,7 @@ public interface PlayerRepository extends JpaRepository<Player, Long> {
      * Female first within each skill tier,
      * then by skill: Beginner → Intermediate → Advanced.
      */
+    @EntityGraph(attributePaths = {"soldTeam", "stats"})
     @Query("""
         SELECT p FROM Player p
         WHERE LOWER(p.location) = LOWER(:location)
