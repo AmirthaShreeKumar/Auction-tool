@@ -432,24 +432,27 @@ export const AppProvider = ({ children }) => {
   };
 
   const reAuction = async () => {
+    // Optimistic update: immediately mark matching PASSED players as UNSOLD
+    setPlayers(prev => prev.map(p => {
+      if (p.location?.toLowerCase() !== city?.toLowerCase()) return p;
+      if (p.status !== 'PASSED') return p;
+      if (auctionSkillFilter !== 'All' && p.skillLevel !== auctionSkillFilter) return p;
+      if (auctionGenderFilter !== 'All' && p.gender !== auctionGenderFilter) return p;
+      return { ...p, status: 'UNSOLD', soldPrice: null, soldTeamId: null, soldTeamName: null };
+    }));
+    setCurrentAuctionIndex(0);
+
+    // Fire backend call in the background — don't block UI
+    const params = new URLSearchParams();
+    if (auctionSkillFilter !== 'All') params.append('skillLevel', auctionSkillFilter);
+    if (auctionGenderFilter !== 'All') params.append('gender', auctionGenderFilter);
+    const qs = params.toString();
     try {
-      // Send filter params so backend only resets matching PASSED players
-      const params = new URLSearchParams();
-      if (auctionSkillFilter !== 'All') params.append('skillLevel', auctionSkillFilter);
-      if (auctionGenderFilter !== 'All') params.append('gender', auctionGenderFilter);
-      const qs = params.toString();
       await apiFetch(`/api/${city}/auction/re-auction${qs ? '?' + qs : ''}`, { method: 'POST' });
-      // Optimistic: mark only PASSED players matching current filters as UNSOLD
-      setPlayers(prev => prev.map(p => {
-        if (p.location?.toLowerCase() !== city?.toLowerCase()) return p;
-        if (p.status !== 'PASSED') return p;
-        if (auctionSkillFilter !== 'All' && p.skillLevel !== auctionSkillFilter) return p;
-        if (auctionGenderFilter !== 'All' && p.gender !== auctionGenderFilter) return p;
-        return { ...p, status: 'UNSOLD', soldPrice: null, soldTeamId: null, soldTeamName: null };
-      }));
-      setCurrentAuctionIndex(0);
     } catch (err) {
-      console.error('Re-auction failed:', err.message);
+      console.error('Re-auction failed, reverting:', err.message);
+      // Revert optimistic update on failure
+      await refreshPlayers();
     }
   };
 

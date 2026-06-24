@@ -131,7 +131,7 @@ public class AuctionController {
      * Optional query params filter which passed players are reset.
      */
     @PostMapping("/re-auction")
-    public ResponseEntity<List<com.wissen.auction.player.PlayerDTO>> reAuction(
+    public ResponseEntity<Map<String, Integer>> reAuction(
             @PathVariable String city,
             @RequestParam(required = false) String skillLevel,
             @RequestParam(required = false) String gender,
@@ -140,7 +140,8 @@ public class AuctionController {
         String jwtCity = (String) httpReq.getAttribute("jwtCity");
         validateCity(city, jwtCity);
 
-        return ResponseEntity.ok(auctionService.resetPassedPlayers(jwtCity, skillLevel, gender));
+        int count = auctionService.resetPassedPlayers(jwtCity, skillLevel, gender);
+        return ResponseEntity.ok(Map.of("updated", count));
     }
 
     // ---- Helpers ----

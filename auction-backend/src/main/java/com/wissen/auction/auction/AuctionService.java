@@ -284,34 +284,29 @@ public class AuctionService {
      */
     @CacheEvict(value = "auctionState", key = "#city")
     @Transactional
-    public List<PlayerDTO> resetPassedPlayers(String city, String skillLevel, String gender) {
-        List<Player> passed = playerRepository.findByLocationIgnoreCaseAndStatus(
-                city, Player.PlayerStatus.PASSED);
+    public int resetPassedPlayers(String city, String skillLevel, String gender) {
+        boolean hasSkill = skillLevel != null && !skillLevel.isBlank();
+        boolean hasGender = gender != null && !gender.isBlank();
 
-        // Apply optional filters so only matching passed players are reset
-        if (skillLevel != null && !skillLevel.isBlank()) {
-            Player.SkillLevel level = Player.SkillLevel.valueOf(skillLevel);
-            passed = passed.stream()
-                    .filter(p -> p.getSkillLevel() == level)
-                    .collect(Collectors.toList());
+        int updated;
+        if (hasSkill && hasGender) {
+            updated = playerRepository.bulkResetPassedBySkillAndGender(
+                    city,
+                    Player.SkillLevel.valueOf(skillLevel),
+                    Player.Gender.valueOf(gender));
+        } else if (hasSkill) {
+            updated = playerRepository.bulkResetPassedBySkill(
+                    city,
+                    Player.SkillLevel.valueOf(skillLevel));
+        } else if (hasGender) {
+            updated = playerRepository.bulkResetPassedByGender(
+                    city,
+                    Player.Gender.valueOf(gender));
+        } else {
+            updated = playerRepository.bulkResetPassed(city);
         }
-        if (gender != null && !gender.isBlank()) {
-            Player.Gender g = Player.Gender.valueOf(gender);
-            passed = passed.stream()
-                    .filter(p -> p.getGender() == g)
-                    .collect(Collectors.toList());
-        }
 
-        passed.forEach(p -> {
-            p.setStatus(Player.PlayerStatus.UNSOLD);
-            p.setSoldPrice(null);
-            p.setSoldTeam(null);
-        });
-
-        return playerRepository.saveAll(passed)
-                .stream()
-                .map(PlayerDTO::from)
-                .collect(Collectors.toList());
+        return updated;
     }
 
     // ---- BID HISTORY ----

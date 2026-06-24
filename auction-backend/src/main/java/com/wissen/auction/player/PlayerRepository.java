@@ -3,6 +3,7 @@ package com.wissen.auction.player;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -41,4 +42,45 @@ public interface PlayerRepository extends JpaRepository<Player, Long> {
           p.fullName ASC
         """)
     List<Player> findAuctionQueue(@Param("location") String location);
+
+    // ---- Bulk UPDATE for re-auction (single SQL round-trip) ----
+
+    /** Reset ALL PASSED players in a city to UNSOLD (no filters). */
+    @Modifying
+    @Query("""
+        UPDATE Player p SET p.status = 'UNSOLD', p.soldPrice = NULL, p.soldTeam = NULL
+        WHERE LOWER(p.location) = LOWER(:city) AND p.status = 'PASSED'
+        """)
+    int bulkResetPassed(@Param("city") String city);
+
+    /** Reset PASSED players in a city to UNSOLD, filtered by skill level only. */
+    @Modifying
+    @Query("""
+        UPDATE Player p SET p.status = 'UNSOLD', p.soldPrice = NULL, p.soldTeam = NULL
+        WHERE LOWER(p.location) = LOWER(:city) AND p.status = 'PASSED'
+          AND p.skillLevel = :skillLevel
+        """)
+    int bulkResetPassedBySkill(@Param("city") String city,
+                               @Param("skillLevel") Player.SkillLevel skillLevel);
+
+    /** Reset PASSED players in a city to UNSOLD, filtered by gender only. */
+    @Modifying
+    @Query("""
+        UPDATE Player p SET p.status = 'UNSOLD', p.soldPrice = NULL, p.soldTeam = NULL
+        WHERE LOWER(p.location) = LOWER(:city) AND p.status = 'PASSED'
+          AND p.gender = :gender
+        """)
+    int bulkResetPassedByGender(@Param("city") String city,
+                                @Param("gender") Player.Gender gender);
+
+    /** Reset PASSED players in a city to UNSOLD, filtered by both skill level and gender. */
+    @Modifying
+    @Query("""
+        UPDATE Player p SET p.status = 'UNSOLD', p.soldPrice = NULL, p.soldTeam = NULL
+        WHERE LOWER(p.location) = LOWER(:city) AND p.status = 'PASSED'
+          AND p.skillLevel = :skillLevel AND p.gender = :gender
+        """)
+    int bulkResetPassedBySkillAndGender(@Param("city") String city,
+                                        @Param("skillLevel") Player.SkillLevel skillLevel,
+                                        @Param("gender") Player.Gender gender);
 }
