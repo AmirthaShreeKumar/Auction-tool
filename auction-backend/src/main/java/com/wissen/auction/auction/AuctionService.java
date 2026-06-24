@@ -279,13 +279,28 @@ public class AuctionService {
     // ---- RE-AUCTION UNSOLD ----
 
     /**
-     * Resets all PASSED players back to UNSOLD so they re-enter the auction queue.
+     * Resets PASSED players back to UNSOLD so they re-enter the auction queue.
+     * Optional filters narrow down which passed players are reset.
      */
     @CacheEvict(value = "auctionState", key = "#city")
     @Transactional
-    public List<PlayerDTO> resetPassedPlayers(String city) {
+    public List<PlayerDTO> resetPassedPlayers(String city, String skillLevel, String gender) {
         List<Player> passed = playerRepository.findByLocationIgnoreCaseAndStatus(
                 city, Player.PlayerStatus.PASSED);
+
+        // Apply optional filters so only matching passed players are reset
+        if (skillLevel != null && !skillLevel.isBlank()) {
+            Player.SkillLevel level = Player.SkillLevel.valueOf(skillLevel);
+            passed = passed.stream()
+                    .filter(p -> p.getSkillLevel() == level)
+                    .collect(Collectors.toList());
+        }
+        if (gender != null && !gender.isBlank()) {
+            Player.Gender g = Player.Gender.valueOf(gender);
+            passed = passed.stream()
+                    .filter(p -> p.getGender() == g)
+                    .collect(Collectors.toList());
+        }
 
         passed.forEach(p -> {
             p.setStatus(Player.PlayerStatus.UNSOLD);

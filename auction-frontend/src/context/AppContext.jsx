@@ -28,9 +28,12 @@ export const AppProvider = ({ children }) => {
   const [highestBidderTeam, setHighestBidderTeam]     = useState(null); // No longer needed strictly for UI during bid, but kept for markSold if needed
   const [highestBidderTeamId, setHighestBidderTeamId] = useState(null);
 
-  // Auction Filters
-  const [auctionSkillFilter, setAuctionSkillFilter] = useState('All');
-  const [auctionGenderFilter, setAuctionGenderFilter] = useState('All');
+  // Auction Filters — reset auction index when filters change so we start
+  // at the beginning of the newly-filtered queue.
+  const [auctionSkillFilter, _setAuctionSkillFilter] = useState('All');
+  const [auctionGenderFilter, _setAuctionGenderFilter] = useState('All');
+  const setAuctionSkillFilter = (val) => { _setAuctionSkillFilter(val); setCurrentAuctionIndex(0); };
+  const setAuctionGenderFilter = (val) => { _setAuctionGenderFilter(val); setCurrentAuctionIndex(0); };
 
   // Loading / error
   const [loading, setLoading] = useState(false);
@@ -279,15 +282,11 @@ export const AppProvider = ({ children }) => {
   const auctionQueue  = getAuctionQueue();
   const activePlayer  = auctionQueue[currentAuctionIndex] || null;
 
-  // Safety: clamp index when queue shrinks (e.g., after selling a player)
-  // This ensures skipped players always cycle back into view.
-  useEffect(() => {
-    if (auctionQueue.length === 0) {
-      if (currentAuctionIndex !== 0) setCurrentAuctionIndex(0);
-    } else if (currentAuctionIndex >= auctionQueue.length) {
-      setCurrentAuctionIndex(0);
-    }
-  }, [auctionQueue.length, currentAuctionIndex]);
+  // Safety: when the queue shrinks (e.g., after selling a player), adjust the
+  // index so the next player in line is shown. When we're past the end of the
+  // queue it means we've exhausted the current category — keep the index at
+  // queue.length so activePlayer is null and the "Auction Complete" screen
+  // appears. Do NOT wrap to 0, as that would silently restart the auction.
 
   useEffect(() => {
     if (activePlayer) {
@@ -410,13 +409,20 @@ export const AppProvider = ({ children }) => {
 
   const reAuction = async () => {
     try {
-      await apiFetch(`/api/${city}/auction/re-auction`, { method: 'POST' });
-      // Optimistic: mark all PASSED players as UNSOLD locally
-      setPlayers(prev => prev.map(p =>
-        p.location?.toLowerCase() === city?.toLowerCase() && p.status === 'PASSED'
-          ? { ...p, status: 'UNSOLD', soldPrice: null, soldTeamId: null, soldTeamName: null }
-          : p
-      ));
+      // Send filter params so backend only resets matching PASSED players
+      const params = new URLSearchParams();
+      if (auctionSkillFilter !== 'All') params.append('skillLevel', auctionSkillFilter);
+      if (auctionGenderFilter !== 'All') params.append('gender', auctionGenderFilter);
+      const qs = params.toString();
+      await apiFetch(`/api/${city}/auction/re-auction${qs ? '?' + qs : ''}`, { method: 'POST' });
+      // Optimistic: mark only PASSED players matching current filters as UNSOLD
+      setPlayers(prev => prev.map(p => {
+        if (p.location?.toLowerCase() !== city?.toLowerCase()) return p;
+        if (p.status !== 'PASSED') return p;
+        if (auctionSkillFilter !== 'All' && p.skillLevel !== auctionSkillFilter) return p;
+        if (auctionGenderFilter !== 'All' && p.gender !== auctionGenderFilter) return p;
+        return { ...p, status: 'UNSOLD', soldPrice: null, soldTeamId: null, soldTeamName: null };
+      }));
       setCurrentAuctionIndex(0);
     } catch (err) {
       console.error('Re-auction failed:', err.message);

@@ -126,18 +126,21 @@ public class AuctionController {
     }
 
     /**
-     * POST /api/{city}/auction/re-auction
-     * Reset all PASSED players back to UNSOLD for a re-auction round.
+     * POST /api/{city}/auction/re-auction?skillLevel=X&gender=Y
+     * Reset PASSED players back to UNSOLD for a re-auction round.
+     * Optional query params filter which passed players are reset.
      */
     @PostMapping("/re-auction")
     public ResponseEntity<List<com.wissen.auction.player.PlayerDTO>> reAuction(
             @PathVariable String city,
+            @RequestParam(required = false) String skillLevel,
+            @RequestParam(required = false) String gender,
             HttpServletRequest httpReq) {
 
         String jwtCity = (String) httpReq.getAttribute("jwtCity");
         validateCity(city, jwtCity);
 
-        return ResponseEntity.ok(auctionService.resetPassedPlayers(jwtCity));
+        return ResponseEntity.ok(auctionService.resetPassedPlayers(jwtCity, skillLevel, gender));
     }
 
     // ---- Helpers ----
