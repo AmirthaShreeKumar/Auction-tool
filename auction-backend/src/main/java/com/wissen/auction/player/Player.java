@@ -50,7 +50,7 @@ public class Player {
     private SkillLevel skillLevel;
 
     @Column(name = "years_of_experience")
-    private Integer yearsOfExperience;
+    private String yearsOfExperience;
 
     @Column(name = "base_price", nullable = false)
     private Integer basePrice;

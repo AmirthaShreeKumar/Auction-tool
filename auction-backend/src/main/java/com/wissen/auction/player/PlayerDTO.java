@@ -21,7 +21,7 @@ public class PlayerDTO {
     private String gender;
     private String location;
     private String skillLevel;
-    private Integer yearsOfExperience;
+    private String yearsOfExperience;
     private String mobileNumber;
     private String imageUrl;
     private Integer basePrice;

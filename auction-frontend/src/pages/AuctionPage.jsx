@@ -57,13 +57,7 @@ const AuctionPage = () => {
     ).length;
   };
 
-  // Dismiss toast on any click anywhere on the page
-  useEffect(() => {
-    if (!toastMessage) return;
-    const dismiss = () => setToastMessage(null);
-    document.addEventListener('click', dismiss);
-    return () => document.removeEventListener('click', dismiss);
-  }, [toastMessage]);
+
 
   useEffect(() => {
     if (currentBid > 0) {
@@ -80,6 +74,10 @@ const AuctionPage = () => {
     setShowTeamModal(false);
     setImgError(false);
   }, [activePlayer]);
+
+  useEffect(() => {
+    console.log("[WBPL Debug] toastMessage changed:", toastMessage);
+  }, [toastMessage]);
 
   // Filter teams by city
   const cityTeams = teams.filter(t => t.location.toLowerCase() === city.toLowerCase());
@@ -101,17 +99,32 @@ const AuctionPage = () => {
   };
 
   const handleMarkSoldToTeam = async (teamId, teamName) => {
+    console.log("[WBPL Debug] handleMarkSoldToTeam called with:", { teamId, teamName });
     setBiddingError('');
     const playerSold = activePlayer?.fullName;
     const amountSold = currentBid;
 
-    const res = await markSold(teamId);
+    console.log("[WBPL Debug] Calling markSold for:", { playerSold, amountSold });
+    const res = await markSold(teamId, (errorMsg) => {
+      console.log("[WBPL Debug] Background markSold failed:", errorMsg);
+      setToastMessage({ text: `Failed to sell ${playerSold}: ${errorMsg}`, type: 'error' });
+      setTimeout(() => {
+        setToastMessage(null);
+      }, 5000);
+    });
+    console.log("[WBPL Debug] markSold response:", res);
+
     if (res && !res.success) {
+      console.log("[WBPL Debug] markSold failed:", res.message);
       setBiddingError(res.message);
     } else {
+      console.log("[WBPL Debug] markSold succeeded, setting toast...");
       setShowTeamModal(false);
       setToastMessage({ text: `${playerSold} sold to ${teamName} for ${amountSold.toLocaleString()} pts`, type: 'success' });
-      setTimeout(() => setToastMessage(null), 1000);
+      setTimeout(() => {
+        console.log("[WBPL Debug] Timeout reached, clearing toast");
+        setToastMessage(null);
+      }, 3000);
     }
   };
 
@@ -277,7 +290,7 @@ const AuctionPage = () => {
                   <div style={{ display: 'flex', gap: '20px', marginTop: '12px', color: 'var(--color-text-muted)', fontSize: '0.9rem', flexWrap: 'wrap' }}>
                     <span>Gender: <strong style={{ color: 'white' }}>{activePlayer.gender}</strong></span>
                     <span>&bull;</span>
-                    <span>Experience: <strong style={{ color: 'white' }}>{activePlayer.yearsOfExperience !== null && activePlayer.yearsOfExperience !== undefined ? `${activePlayer.yearsOfExperience} Year${activePlayer.yearsOfExperience !== 1 ? 's' : ''}` : '-'}</strong></span>
+                    <span>Experience: <strong style={{ color: 'white' }}>{activePlayer.yearsOfExperience !== null && activePlayer.yearsOfExperience !== undefined && activePlayer.yearsOfExperience !== '' ? `${activePlayer.yearsOfExperience} Year${String(activePlayer.yearsOfExperience) !== '1' ? 's' : ''}` : '-'}</strong></span>
                     <span>&bull;</span>
                     <span>Email: <strong style={{ color: 'white' }}>{activePlayer.email}</strong></span>
                   </div>
@@ -615,7 +628,10 @@ const AuctionPage = () => {
                 return (
                   <div 
                     key={t.id} 
-                    onClick={() => isEligible ? handleMarkSoldToTeam(t.id, t.teamName) : null}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (isEligible) handleMarkSoldToTeam(t.id, t.teamName);
+                    }}
                     style={{ 
                       padding: '16px',
                       background: 'rgba(255,255,255,0.02)',
@@ -655,6 +671,7 @@ const AuctionPage = () => {
       {/* Toast Notification */}
       {toastMessage && (
         <div 
+          onClick={() => setToastMessage(null)}
           style={{
             position: 'fixed', 
             top: '20px', 

@@ -40,7 +40,7 @@ const PlayersPage = () => {
   const [photoPreview, setPhotoPreview] = useState(null);
   const [gender, setGender] = useState('Male');
   const [skillLevel, setSkillLevel] = useState('Beginner');
-  const [yearsOfExperience, setYearsOfExperience] = useState(1);
+  const [yearsOfExperience, setYearsOfExperience] = useState('1');
   const [basePrice, setBasePrice] = useState(2000);
   const [matchesPlayed, setMatchesPlayed] = useState('');
   const [matchesWon, setMatchesWon] = useState('');
@@ -119,7 +119,7 @@ const PlayersPage = () => {
       imageUrl: photoFile ? '' : imageUrl,
       gender,
       skillLevel,
-      yearsOfExperience: parseInt(yearsOfExperience),
+      yearsOfExperience: yearsOfExperience ? yearsOfExperience.toString() : "",
       basePrice: parseInt(basePrice),
       location: city,
       matchesPlayed: showStats && matchesPlayed !== '' ? parseInt(matchesPlayed) : null,
@@ -185,7 +185,7 @@ const PlayersPage = () => {
     clearPhoto();
     setGender('Male');
     setSkillLevel('Beginner');
-    setYearsOfExperience(1);
+    setYearsOfExperience('1');
     setBasePrice(2000);
     setMatchesPlayed('');
     setMatchesWon('');
@@ -364,7 +364,7 @@ const PlayersPage = () => {
                     {player.skillLevel}
                   </span>
                 </td>
-                <td style={{ textAlign: 'center' }}>{player.yearsOfExperience !== null && player.yearsOfExperience !== undefined ? `${player.yearsOfExperience} yr${player.yearsOfExperience !== 1 ? 's' : ''}` : '-'}</td>
+                <td style={{ textAlign: 'center' }}>{player.yearsOfExperience !== null && player.yearsOfExperience !== undefined && player.yearsOfExperience !== '' ? `${player.yearsOfExperience} yr${String(player.yearsOfExperience) !== '1' ? 's' : ''}` : '-'}</td>
                 <td style={{ fontWeight: '600', color: 'var(--color-secondary)' }}>{player.basePrice.toLocaleString()} pts</td>
                 <td>
                   <span className={getStatusPillClass(player.status)}>
@@ -665,10 +665,9 @@ const PlayersPage = () => {
                 <div className="form-group">
                   <label className="form-label">Experience (Years)</label>
                   <input 
-                    type="number" 
-                    min="0"
-                    max="30"
+                    type="text" 
                     className="form-input" 
+                    placeholder="e.g. 4+ or 3"
                     value={yearsOfExperience}
                     onChange={(e) => setYearsOfExperience(e.target.value)}
                     required 
