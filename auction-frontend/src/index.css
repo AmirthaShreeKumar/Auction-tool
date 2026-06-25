@@ -37,6 +37,23 @@
   display: none;
 }
 
+/* Custom Scrollbar Styles for normal scrollable sections */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(212, 252, 52, 0.35); /* glows in primary color on hover */
+}
+
+
 body {
   background-color: var(--bg-main);
   background-image: 

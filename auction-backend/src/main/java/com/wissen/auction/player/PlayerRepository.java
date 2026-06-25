@@ -25,9 +25,9 @@ public interface PlayerRepository extends JpaRepository<Player, Long> {
 
     List<Player> findByLocationIgnoreCaseAndSkillLevel(String location, Player.SkillLevel skillLevel);
 
-    Optional<Player> findByWissenId(String wissenId);
+    Optional<Player> findByWissenIdAndLocationIgnoreCase(String wissenId, String location);
 
-    boolean existsByWissenId(String wissenId);
+    boolean existsByWissenIdAndLocationIgnoreCase(String wissenId, String location);
 
     /**
      * Auction queue order:

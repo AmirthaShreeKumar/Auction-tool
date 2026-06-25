@@ -1,7 +1,93 @@
 import React, { useContext, useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { AppContext } from '../context/AppContext';
-import { Plus, UserPlus, Filter, X, Search, Upload, Camera, Trash2 } from 'lucide-react';
+import { Plus, UserPlus, Filter, X, Search, Upload, Camera, Trash2, Pencil } from 'lucide-react';
+
+const PlayerAvatar = ({ imageUrl, fullName }) => {
+  const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    setImgError(false);
+  }, [imageUrl]);
+
+  if (imageUrl && !imgError) {
+    return (
+      <img 
+        src={imageUrl} 
+        alt={fullName} 
+        onError={() => setImgError(true)} 
+        style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+      />
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 100 100" style={{ width: '100%', height: '100%', background: '#1e293b' }}>
+      <circle cx="50" cy="35" r="20" fill="#94a3b8" />
+      <path d="M15 85 C 15 65, 30 55, 50 55 C 70 55, 85 65, 85 85 Z" fill="#64748b" />
+    </svg>
+  );
+};
+
+// Helper function to compress images locally in the browser before upload
+const compressImage = (file, maxWidth = 1024, maxHeight = 1024, quality = 0.8) => {
+  return new Promise((resolve, reject) => {
+    // Only compress JPEG, PNG, and WebP
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      resolve(file); // Return original if not supported type
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        // Calculate new dimensions preserving aspect ratio
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              const compressedFile = new File([blob], file.name, {
+                type: 'image/jpeg',
+                lastModified: Date.now()
+              });
+              resolve(compressedFile);
+            } else {
+              resolve(file); // Fallback
+            }
+          },
+          'image/jpeg',
+          quality
+        );
+      };
+      img.onerror = () => resolve(file);
+    };
+    reader.onerror = () => resolve(file);
+  });
+};
 
 const PlayersPage = () => {
   const { city, role } = useParams();
@@ -15,6 +101,13 @@ const PlayersPage = () => {
   const [toastMessage, setToastMessage] = useState(null);
   const [uploadMode, setUploadMode] = useState('manual'); // 'manual' or 'excel'
   const [excelFile, setExcelFile] = useState(null);
+  const [importResult, setImportResult] = useState(null);
+
+  // Bulk player photo upload states
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [bulkItems, setBulkItems] = useState([]);
+  const [isBulkUploading, setIsBulkUploading] = useState(false);
+  const [bulkUploadProgress, setBulkUploadProgress] = useState({ total: 0, current: 0, successCount: 0, failCount: 0 });
 
   // Dismiss toast on any click anywhere on the page
   useEffect(() => {
@@ -62,8 +155,148 @@ const PlayersPage = () => {
     p.wissenId.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Handle photo file selection with validation
-  const handlePhotoSelect = (file) => {
+  // Helper to normalize strings for comparison
+  const normalizeName = (name) => {
+    return name
+      .toLowerCase()
+      .replace(/[_\s-]+/g, ' ')  // replace underscores, dashes, spaces with a single space
+      .trim();
+  };
+
+  // Matching algorithm to find player ID based on photo filename
+  const findBestPlayerMatch = (filename) => {
+    // Strip extension
+    const baseName = filename.substring(0, filename.lastIndexOf('.')) || filename;
+    const normFile = normalizeName(baseName);
+    if (!normFile) return '';
+
+    // 1. Exact match on normalized full name
+    let bestMatch = cityPlayers.find(p => normalizeName(p.fullName) === normFile);
+    if (bestMatch) return bestMatch.id;
+
+    // 2. Substring match (normalized file name contains normalized player name or vice versa)
+    bestMatch = cityPlayers.find(p => {
+      const normPlayer = normalizeName(p.fullName);
+      return normPlayer.includes(normFile) || normFile.includes(normPlayer);
+    });
+    if (bestMatch) return bestMatch.id;
+
+    // 3. Word split match (all words in the normalized filename are present in the player's name)
+    const fileWords = normFile.split(' ').filter(w => w.length > 1);
+    if (fileWords.length > 0) {
+      bestMatch = cityPlayers.find(p => {
+        const normPlayer = normalizeName(p.fullName);
+        return fileWords.every(word => normPlayer.includes(word));
+      });
+      if (bestMatch) return bestMatch.id;
+    }
+
+    return ''; // Mismatch defaults to empty string (None)
+  };
+
+  const handleBulkPhotoSelect = (filesList) => {
+    if (!filesList || filesList.length === 0) return;
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    const items = [];
+
+    for (let i = 0; i < filesList.length; i++) {
+      const file = filesList[i];
+      if (!allowedTypes.includes(file.type)) continue;
+
+      const matchedId = findBestPlayerMatch(file.name);
+      items.push({
+        file,
+        fileName: file.name,
+        previewUrl: URL.createObjectURL(file),
+        matchedPlayerId: matchedId,
+        status: 'pending',
+        errorMsg: ''
+      });
+    }
+
+    setBulkItems(prev => {
+      // Clean up previous preview URLs to prevent memory leaks
+      prev.forEach(item => URL.revokeObjectURL(item.previewUrl));
+      return items;
+    });
+  };
+
+  const handleBulkItemChange = (index, playerId) => {
+    setBulkItems(prev => prev.map((item, idx) => 
+      idx === index ? { ...item, matchedPlayerId: playerId } : item
+    ));
+  };
+
+  const handleBulkSubmit = async () => {
+    const itemsToUpload = bulkItems.filter(item => item.matchedPlayerId !== '');
+    if (itemsToUpload.length === 0) {
+      setToastMessage({ text: 'No players selected for upload.', type: 'error' });
+      setTimeout(() => setToastMessage(null), 3000);
+      return;
+    }
+
+    setIsBulkUploading(true);
+    setBulkUploadProgress({
+      total: itemsToUpload.length,
+      current: 0,
+      successCount: 0,
+      failCount: 0
+    });
+
+    // Upload items sequentially
+    let currentIdx = 0;
+    let success = 0;
+    let fail = 0;
+
+    for (let i = 0; i < bulkItems.length; i++) {
+      const item = bulkItems[i];
+      if (item.matchedPlayerId === '') continue;
+
+      // Update item status in list
+      setBulkItems(prev => prev.map((b, idx) => 
+        idx === i ? { ...b, status: 'uploading' } : b
+      ));
+
+      try {
+        // Compress the image file just before uploading to ensure small payload size
+        const compressedFile = await compressImage(item.file);
+        await uploadPlayerPhoto(item.matchedPlayerId, compressedFile);
+        success++;
+        setBulkItems(prev => prev.map((b, idx) => 
+          idx === i ? { ...b, status: 'success' } : b
+        ));
+      } catch (err) {
+        fail++;
+        setBulkItems(prev => prev.map((b, idx) => 
+          idx === i ? { ...b, status: 'error', errorMsg: err.message || 'Upload failed' } : b
+        ));
+      }
+
+      currentIdx++;
+      setBulkUploadProgress(prev => ({
+        ...prev,
+        current: currentIdx,
+        successCount: success,
+        failCount: fail
+      }));
+    }
+
+    setIsBulkUploading(false);
+    setToastMessage({ text: `Bulk upload completed: ${success} success, ${fail} failed.`, type: success > 0 ? 'success' : 'error' });
+    setTimeout(() => setToastMessage(null), 4000);
+
+    if (fail === 0) {
+      // Automatically close modal after 1.5s if all succeeded
+      setTimeout(() => {
+        setBulkItems([]);
+        setShowBulkModal(false);
+      }, 1500);
+    }
+  };
+
+  // Handle photo file selection with validation & compression
+  const handlePhotoSelect = async (file) => {
     if (!file) return;
     
     // Validate file type
@@ -74,15 +307,16 @@ const PlayersPage = () => {
       return;
     }
     
-    // Validate file size (2MB max)
-    if (file.size > 2 * 1024 * 1024) {
-      setToastMessage({ text: 'Photo must be under 2MB. Please compress or resize.', type: 'error' });
-      setTimeout(() => setToastMessage(null), 3000);
-      return;
+    try {
+      // Compress the image before uploading (scales down large photos to <2MB)
+      const compressed = await compressImage(file);
+      setPhotoFile(compressed);
+      setPhotoPreview(URL.createObjectURL(compressed));
+    } catch (err) {
+      // Fallback
+      setPhotoFile(file);
+      setPhotoPreview(URL.createObjectURL(file));
     }
-    
-    setPhotoFile(file);
-    setPhotoPreview(URL.createObjectURL(file));
   };
 
   const clearPhoto = () => {
@@ -165,11 +399,14 @@ const PlayersPage = () => {
     e.preventDefault();
     if (!excelFile) return;
     try {
-      await importPlayersFromExcel(excelFile);
-      setToastMessage({ text: "Players imported successfully!", type: 'success' });
-      setTimeout(() => setToastMessage(null), 3000);
-      resetForm();
-      setShowAddModal(false);
+      const result = await importPlayersFromExcel(excelFile);
+      setImportResult(result);
+      setToastMessage({ 
+        text: `Excel processed: ${result.importedCount} imported, ${result.skippedCount} skipped.`, 
+        type: 'success' 
+      });
+      setTimeout(() => setToastMessage(null), 4000);
+      setExcelFile(null);
     } catch (error) {
       setToastMessage({ text: error.message || "Failed to import players", type: 'error' });
       setTimeout(() => setToastMessage(null), 3000);
@@ -192,6 +429,7 @@ const PlayersPage = () => {
     setMatchesLost('');
     setShowStats(false);
     setEditingPlayer(null);
+    setImportResult(null);
   };
 
   const handleEditClick = (player) => {
@@ -275,6 +513,14 @@ const PlayersPage = () => {
               Clear All Players
             </button>
             <button
+              onClick={() => { setBulkItems([]); setShowBulkModal(true); }}
+              className="btn btn-secondary"
+              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+            >
+              <Camera size={16} />
+              Upload Bulk Photos
+            </button>
+            <button
               onClick={() => { resetForm(); setShowAddModal(true); }}
               className="btn btn-primary"
               style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
@@ -329,69 +575,169 @@ const PlayersPage = () => {
         </div>
       </div>
 
-      {/* Players Table */}
-      <div className="custom-table-container">
-        <table className="custom-table">
-          <thead>
-            <tr>
-              <th>Wissen ID</th>
-              <th>Full Name</th>
-              <th>Email</th>
-              <th>Gender</th>
-              <th>Skill Level</th>
-              <th>Experience</th>
-              <th>Base Price</th>
-              <th>Status</th>
-              <th>Team purchased</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredPlayers.map((player) => (
-              <tr 
-                key={player.id} 
-                onClick={() => setSelectedPlayer(player)} 
-                style={{ cursor: 'pointer' }}
-                className="hover-row"
-              >
-                <td style={{ fontWeight: '600', color: 'white' }}>{player.wissenId}</td>
-                <td>
-                  <div style={{ fontWeight: '600' }}>{player.fullName}</div>
-                </td>
-                <td style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>{player.email}</td>
-                <td>{player.gender}</td>
-                <td>
-                  <span className={getSkillPillClass(player.skillLevel)}>
+      {/* Players Cards Grid Layout */}
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', 
+        gap: '20px', 
+        marginTop: '20px' 
+      }}>
+        {filteredPlayers.map((player) => {
+          const isSold = player.status?.toLowerCase() === 'sold';
+          
+          return (
+            <div 
+              key={player.id} 
+              onClick={() => setSelectedPlayer(player)} 
+              className="glass-panel"
+              style={{ 
+                padding: '20px', 
+                borderRadius: '16px', 
+                border: '1px solid var(--border-color)', 
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                minHeight: '260px',
+                position: 'relative',
+                transition: 'all 0.3s ease'
+              }}
+              onMouseOver={(e) => { e.currentTarget.style.borderColor = 'rgba(212, 252, 52, 0.25)'; e.currentTarget.style.boxShadow = '0 10px 25px rgba(0,0,0,0.4)'; }}
+              onMouseOut={(e) => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.boxShadow = 'none'; }}
+            >
+              <div>
+                {/* Header: Avatar, Wissen ID, and Status */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                  <div style={{ 
+                    width: '60px', 
+                    height: '60px', 
+                    borderRadius: '12px', 
+                    background: '#1e293b', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    overflow: 'hidden',
+                    border: '1px solid var(--border-color)',
+                    flexShrink: 0
+                  }}>
+                    <PlayerAvatar imageUrl={player.imageUrl} fullName={player.fullName} />
+                  </div>
+                  
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
+                    <span style={{ 
+                      fontSize: '0.75rem', 
+                      background: 'rgba(255,255,255,0.06)', 
+                      padding: '2px 8px', 
+                      borderRadius: '4px',
+                      color: 'white',
+                      fontWeight: 'bold'
+                    }}>{player.wissenId}</span>
+                    <span className={getStatusPillClass(player.status)}>
+                      {player.status}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Body: Name and Contact */}
+                <div style={{ marginBottom: '16px' }}>
+                  <h4 style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'white', margin: '0 0 4px 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={player.fullName}>
+                    {player.fullName}
+                  </h4>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={player.email}>
+                    {player.email}
+                  </div>
+                </div>
+
+                {/* Badges: Gender, Skill Level, Experience */}
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '16px' }}>
+                  <span className="pill" style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--color-text-main)', fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px' }}>
+                    {player.gender}
+                  </span>
+                  <span className={getSkillPillClass(player.skillLevel)} style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px' }}>
                     {player.skillLevel}
                   </span>
-                </td>
-                <td style={{ textAlign: 'center' }}>{player.yearsOfExperience !== null && player.yearsOfExperience !== undefined && player.yearsOfExperience !== '' ? `${player.yearsOfExperience} yr${String(player.yearsOfExperience) !== '1' ? 's' : ''}` : '-'}</td>
-                <td style={{ fontWeight: '600', color: 'var(--color-secondary)' }}>{player.basePrice.toLocaleString()} pts</td>
-                <td>
-                  <span className={getStatusPillClass(player.status)}>
-                    {player.status}
+                  <span className="pill" style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--color-text-main)', fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px' }}>
+                    {player.yearsOfExperience !== null && player.yearsOfExperience !== undefined && player.yearsOfExperience !== '' ? `${player.yearsOfExperience} Yr${String(player.yearsOfExperience) !== '1' ? 's' : ''} Exp` : '- Exp'}
                   </span>
-                </td>
-                <td>
-                  {player.status?.toLowerCase() === 'sold' ? (
+                </div>
+              </div>
+
+              {/* Bottom: Pricing / Purchase details and Admin actions */}
+              <div style={{ 
+                borderTop: '1px solid var(--border-color)', 
+                paddingTop: '12px', 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                marginTop: 'auto'
+              }}>
+                <div>
+                  {isSold ? (
                     <div>
-                      <div style={{ fontWeight: '600', color: 'white', fontSize: '0.9rem' }}>{player.soldTeam}</div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--color-primary)' }}>@{player.soldPrice.toLocaleString()} pts</div>
+                      <div style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Sold to {player.soldTeam}</div>
+                      <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--color-primary)' }}>
+                        {player.soldPrice?.toLocaleString()} <span style={{ fontSize: '0.8rem', fontWeight: 'normal', color: 'var(--color-text-muted)' }}>pts</span>
+                      </div>
                     </div>
                   ) : (
-                    <span style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>&mdash;</span>
+                    <div>
+                      <div style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Base Price</div>
+                      <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--color-secondary)' }}>
+                        {player.basePrice.toLocaleString()} <span style={{ fontSize: '0.8rem', fontWeight: 'normal', color: 'var(--color-text-muted)' }}>pts</span>
+                      </div>
+                    </div>
                   )}
-                </td>
-              </tr>
-            ))}
-            {filteredPlayers.length === 0 && (
-              <tr>
-                <td colSpan="9" style={{ textAlign: 'center', padding: '30px', color: 'var(--color-text-muted)' }}>
-                  No players found matching the filter criteria.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+                </div>
+
+                {role === 'admin' && (
+                  <div style={{ display: 'flex', gap: '8px' }} onClick={(e) => e.stopPropagation()}>
+                    <button 
+                      onClick={() => handleEditClick(player)}
+                      style={{
+                        width: '28px',
+                        height: '28px',
+                        borderRadius: '6px',
+                        background: 'rgba(59, 130, 246, 0.1)',
+                        border: '1px solid rgba(59, 130, 246, 0.2)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#3b82f6',
+                        cursor: 'pointer'
+                      }}
+                      title="Edit Player"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteClick(player)}
+                      style={{
+                        width: '28px',
+                        height: '28px',
+                        borderRadius: '6px',
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        border: '1px solid rgba(239, 68, 68, 0.2)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#ef4444',
+                        cursor: 'pointer'
+                      }}
+                      title="Delete Player"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+        {filteredPlayers.length === 0 && (
+          <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px', color: 'var(--color-text-muted)', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed var(--border-color)' }}>
+            No players found matching the filter criteria.
+          </div>
+        )}
       </div>
 
       {/* Add Player Modal (Admin Only) */}
@@ -425,26 +771,76 @@ const PlayersPage = () => {
             </div>
             
             {uploadMode === 'excel' ? (
-              <form onSubmit={handleExcelUpload}>
-                <div className="form-group" style={{ marginBottom: '24px' }}>
-                  <label className="form-label">Select Excel File (.xlsx)</label>
-                  <input 
-                    type="file" 
-                    accept=".xlsx, .xls"
-                    className="form-input" 
-                    onChange={(e) => setExcelFile(e.target.files[0])}
-                    required
-                    style={{ padding: '12px' }}
-                  />
-                  <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '8px' }}>
-                    Upload an Excel file matching the required schema (Email, Wissen ID, Full Name, Gender, Mobile Number, Skill Level, Experience, Image URL).
-                  </p>
+              importResult ? (
+                <div>
+                  <div style={{ background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', marginBottom: '20px' }}>
+                    <h4 style={{ color: 'white', marginBottom: '12px', fontSize: '1rem' }}>Import Summary</h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+                      <div>Total Rows: <strong style={{ color: 'white' }}>{importResult.totalRows}</strong></div>
+                      <div>Imported: <strong style={{ color: 'var(--color-success)' }}>{importResult.importedCount}</strong></div>
+                      <div>Skipped: <strong style={{ color: 'var(--color-warning)' }}>{importResult.skippedCount}</strong></div>
+                    </div>
+                  </div>
+
+                  {importResult.skipReasons && importResult.skipReasons.length > 0 && (
+                    <div style={{ marginBottom: '20px' }}>
+                      <label className="form-label" style={{ color: 'var(--color-warning)' }}>Skipped Rows Details:</label>
+                      <div className="hide-scrollbar" style={{ 
+                        maxHeight: '180px', 
+                        overflowY: 'auto', 
+                        background: '#0a0e1a', 
+                        padding: '10px 14px', 
+                        borderRadius: '6px', 
+                        border: '1px solid rgba(245,158,11,0.2)',
+                        fontSize: '0.75rem',
+                        lineHeight: '1.4',
+                        color: '#fcd34d',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '6px'
+                      }}>
+                        {importResult.skipReasons.map((reason, idx) => (
+                          <div key={idx} style={{ borderBottom: idx < importResult.skipReasons.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none', paddingBottom: '4px' }}>
+                            {reason}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="modal-actions" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
+                    <button 
+                      type="button" 
+                      className="btn btn-primary" 
+                      onClick={() => { resetForm(); setShowAddModal(false); }}
+                      style={{ width: '100%' }}
+                    >
+                      Done
+                    </button>
+                  </div>
                 </div>
-                <div className="modal-actions">
-                  <button type="button" className="btn btn-secondary" onClick={() => { resetForm(); setShowAddModal(false); }}>Cancel</button>
-                  <button type="submit" className="btn btn-primary" disabled={!excelFile}>Import Players</button>
-                </div>
-              </form>
+              ) : (
+                <form onSubmit={handleExcelUpload}>
+                  <div className="form-group" style={{ marginBottom: '24px' }}>
+                    <label className="form-label">Select Excel File (.xlsx)</label>
+                    <input 
+                      type="file" 
+                      accept=".xlsx, .xls"
+                      className="form-input" 
+                      onChange={(e) => setExcelFile(e.target.files[0])}
+                      required
+                      style={{ padding: '12px' }}
+                    />
+                    <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '8px' }}>
+                      Upload an Excel file matching the required schema (Email, Wissen ID, Full Name, Gender, Mobile Number, Skill Level, Experience, Image URL).
+                    </p>
+                  </div>
+                  <div className="modal-actions">
+                    <button type="button" className="btn btn-secondary" onClick={() => { resetForm(); setShowAddModal(false); }}>Cancel</button>
+                    <button type="submit" className="btn btn-primary" disabled={!excelFile}>Import Players</button>
+                  </div>
+                </form>
+              )
             ) : (
               <form onSubmit={handleSubmit}>
                 <div className="form-group">
@@ -805,6 +1201,228 @@ const PlayersPage = () => {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Photo Upload Modal */}
+      {showBulkModal && (
+        <div className="modal-overlay" onClick={() => !isBulkUploading && setShowBulkModal(false)}>
+          <div className="modal-content" style={{ maxWidth: '900px', width: '95%' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Camera size={20} style={{ color: 'var(--color-primary)' }} />
+                Bulk Player Photo Match & Upload
+              </h3>
+              <button 
+                className="close-btn" 
+                onClick={() => !isBulkUploading && setShowBulkModal(false)}
+                disabled={isBulkUploading}
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            {/* Dropzone for selecting files */}
+            {bulkItems.length === 0 && (
+              <div 
+                style={{
+                  border: '2px dashed var(--border-color)',
+                  borderRadius: '12px',
+                  padding: '40px 20px',
+                  textAlign: 'center',
+                  background: 'rgba(255, 255, 255, 0.01)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  position: 'relative'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.borderColor = 'var(--color-primary)'}
+                onMouseOut={(e) => e.currentTarget.style.borderColor = 'var(--border-color)'}
+                onClick={() => document.getElementById('bulk-photo-input').click()}
+              >
+                <input 
+                  type="file" 
+                  id="bulk-photo-input" 
+                  multiple 
+                  accept="image/*"
+                  onChange={(e) => handleBulkPhotoSelect(e.target.files)}
+                  style={{ display: 'none' }}
+                />
+                <Upload size={48} style={{ color: 'var(--color-text-muted)', marginBottom: '16px', opacity: 0.7 }} />
+                <h4 style={{ color: 'white', marginBottom: '8px' }}>Select Player Photos</h4>
+                <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
+                  Select multiple photos. Filenames (e.g. <code>pinak_dhir.jpg</code>) will be matched to player names automatically.
+                </p>
+              </div>
+            )}
+
+            {/* Preview and Match Editor */}
+            {bulkItems.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)' }}>
+                    Matched <strong>{bulkItems.filter(i => i.matchedPlayerId !== '').length}</strong> of <strong>{bulkItems.length}</strong> photos. Verify or adjust below.
+                  </span>
+                  {!isBulkUploading && (
+                    <button 
+                      onClick={() => setBulkItems([])} 
+                      className="btn btn-secondary" 
+                      style={{ padding: '6px 12px', fontSize: '0.8rem' }}
+                    >
+                      Clear All
+                    </button>
+                  )}
+                </div>
+
+                {/* Grid List of Matches */}
+                <div 
+                  className="hide-scrollbar" 
+                  style={{ 
+                    maxHeight: '50vh', 
+                    overflowY: 'auto', 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    gap: '12px',
+                    paddingRight: '6px',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    background: 'rgba(0,0,0,0.2)'
+                  }}
+                >
+                  {bulkItems.map((item, idx) => {
+                    const sortedPlayers = [...cityPlayers].sort((a, b) => a.fullName.localeCompare(b.fullName));
+                    const isMatched = item.matchedPlayerId !== '';
+
+                    return (
+                      <div 
+                        key={idx}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '16px',
+                          padding: '12px',
+                          background: 'rgba(255, 255, 255, 0.02)',
+                          border: `1px solid ${isMatched ? 'var(--border-color)' : 'rgba(239, 68, 68, 0.15)'}`,
+                          borderRadius: '8px',
+                          flexWrap: 'wrap'
+                        }}
+                      >
+                        {/* Thumbnail */}
+                        <div style={{ width: '60px', height: '60px', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border-color)', flexShrink: 0 }}>
+                          <img src={item.previewUrl} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        </div>
+
+                        {/* Filename info */}
+                        <div style={{ flex: '1 1 200px', minWidth: '150px' }}>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'white', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {item.fileName}
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: isMatched ? 'var(--color-success)' : 'var(--color-warning)' }}>
+                            {isMatched ? '✓ Auto-matched' : '⚠ No match found'}
+                          </div>
+                        </div>
+
+                        {/* Match Dropdown */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '2 1 300px' }}>
+                          <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>Map to:</span>
+                          <select
+                            className="form-select"
+                            value={item.matchedPlayerId}
+                            onChange={(e) => handleBulkItemChange(idx, e.target.value)}
+                            disabled={isBulkUploading}
+                            style={{ flex: 1, padding: '6px 10px', fontSize: '0.85rem', background: '#0a0e1a' }}
+                          >
+                            <option value="">-- Skip / Do Not Upload --</option>
+                            {sortedPlayers.map(p => (
+                              <option key={p.id} value={p.id}>
+                                {p.fullName} ({p.wissenId})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Status Badges */}
+                        <div style={{ flexShrink: 0, minWidth: '90px', textAlign: 'right' }}>
+                          {item.status === 'pending' && !isMatched && (
+                            <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', background: 'rgba(255,255,255,0.05)', padding: '4px 8px', borderRadius: '4px' }}>
+                              Skipped
+                            </span>
+                          )}
+                          {item.status === 'pending' && isMatched && (
+                            <span style={{ fontSize: '0.75rem', color: 'var(--color-secondary)', background: 'rgba(0,240,255,0.08)', padding: '4px 8px', borderRadius: '4px' }}>
+                              Pending
+                            </span>
+                          )}
+                          {item.status === 'uploading' && (
+                            <span style={{ fontSize: '0.75rem', color: 'var(--color-warning)', background: 'rgba(245,158,11,0.08)', padding: '4px 8px', borderRadius: '4px' }}>
+                              Uploading...
+                            </span>
+                          )}
+                          {item.status === 'success' && (
+                            <span style={{ fontSize: '0.75rem', color: 'var(--color-success)', background: 'rgba(16,185,129,0.08)', padding: '4px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
+                              ✓ Success
+                            </span>
+                          )}
+                          {item.status === 'error' && (
+                            <span 
+                              title={item.errorMsg} 
+                              style={{ fontSize: '0.75rem', color: 'var(--color-danger)', background: 'rgba(239,68,68,0.08)', padding: '4px 8px', borderRadius: '4px', cursor: 'help', fontWeight: 'bold' }}
+                            >
+                              ✗ Error
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Progress Indicators */}
+                {isBulkUploading && (
+                  <div style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'white', marginBottom: '8px' }}>
+                      <span>Uploading Photos...</span>
+                      <span>{bulkUploadProgress.current} / {bulkUploadProgress.total} Done</span>
+                    </div>
+                    <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', overflow: 'hidden' }}>
+                      <div 
+                        style={{ 
+                          width: `${(bulkUploadProgress.current / bulkUploadProgress.total) * 100}%`, 
+                          height: '100%', 
+                          background: 'var(--color-primary)', 
+                          transition: 'width 0.2s ease-out' 
+                        }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', gap: '16px', fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '8px' }}>
+                      <span>Succeeded: <strong style={{ color: 'var(--color-success)' }}>{bulkUploadProgress.successCount}</strong></span>
+                      <span>Failed: <strong style={{ color: 'var(--color-danger)' }}>{bulkUploadProgress.failCount}</strong></span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Action buttons */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary" 
+                    onClick={() => setShowBulkModal(false)}
+                    disabled={isBulkUploading}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn btn-primary"
+                    onClick={handleBulkSubmit}
+                    disabled={isBulkUploading || bulkItems.filter(i => i.matchedPlayerId !== '').length === 0}
+                  >
+                    Start Upload ({bulkItems.filter(i => i.matchedPlayerId !== '').length} Mapped)
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

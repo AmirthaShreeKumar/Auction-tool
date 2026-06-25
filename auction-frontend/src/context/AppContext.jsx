@@ -145,9 +145,9 @@ export const AppProvider = ({ children }) => {
   const importPlayersFromExcel = async (file) => {
     const formData = new FormData();
     formData.append('file', file);
-    const newPlayers = await apiUpload(`/api/${city}/players/import`, formData);
-    setPlayers(prev => [...prev, ...newPlayers]);
-    return newPlayers;
+    const response = await apiUpload(`/api/${city}/players/import`, formData);
+    setPlayers(prev => [...prev, ...response.importedPlayers]);
+    return response;
   };
 
   const clearAllPlayers = async () => {
@@ -187,7 +187,7 @@ export const AppProvider = ({ children }) => {
     const formData = new FormData();
     formData.append('photo', photoFile);
     const updated = await apiUpload(`/api/${city}/players/${playerId}/upload-photo`, formData);
-    setPlayers(prev => prev.map(p => p.id === playerId ? updated : p));
+    setPlayers(prev => prev.map(p => Number(p.id) === Number(playerId) ? updated : p));
     return updated;
   };
 
@@ -234,11 +234,11 @@ export const AppProvider = ({ children }) => {
 
     // Ensure the released player is removed from the returned team data
     let finalTeam = updatedTeam;
-    if (finalTeam.players && finalTeam.players.some(p => p.id === playerId)) {
-      const removedPlayer = finalTeam.players.find(p => p.id === playerId);
+    if (finalTeam.players && finalTeam.players.some(p => Number(p.id) === Number(playerId))) {
+      const removedPlayer = finalTeam.players.find(p => Number(p.id) === Number(playerId));
       finalTeam = {
         ...finalTeam,
-        players: finalTeam.players.filter(p => p.id !== playerId),
+        players: finalTeam.players.filter(p => Number(p.id) !== Number(playerId)),
         totalPlayers: Math.max(0, finalTeam.totalPlayers - 1),
         purseRemaining: finalTeam.purseRemaining + (removedPlayer.soldPrice || removedPlayer.basePrice || 0)
       };
@@ -248,7 +248,7 @@ export const AppProvider = ({ children }) => {
     setTeams(prev => prev.map(t => t.id === teamId ? finalTeam : t));
     // Optimistic update: mark the player as UNSOLD locally
     setPlayers(prev => prev.map(p =>
-      p.id === playerId
+      Number(p.id) === Number(playerId)
         ? { ...p, status: 'UNSOLD', soldPrice: null, soldTeamId: null, soldTeamName: null }
         : p
     ));

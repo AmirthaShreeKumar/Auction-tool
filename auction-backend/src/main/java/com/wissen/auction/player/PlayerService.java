@@ -30,6 +30,7 @@ import java.util.stream.Collectors;
  */
 @Service
 @RequiredArgsConstructor
+@lombok.extern.slf4j.Slf4j
 public class PlayerService {
 
     private final PlayerRepository playerRepository;
@@ -63,8 +64,8 @@ public class PlayerService {
 
     @Transactional
     public PlayerDTO createPlayer(PlayerRequest req, String city) {
-        if (playerRepository.existsByWissenId(req.getWissenId())) {
-            throw new IllegalArgumentException("A player with Wissen ID " + req.getWissenId() + " already exists.");
+        if (playerRepository.existsByWissenIdAndLocationIgnoreCase(req.getWissenId(), city)) {
+            throw new IllegalArgumentException("A player with Wissen ID " + req.getWissenId() + " already exists in city: " + city);
         }
 
         Player player = Player.builder()
@@ -107,9 +108,9 @@ public class PlayerService {
         }
 
         // Check wissenId conflict with another player
-        playerRepository.findByWissenId(req.getWissenId()).ifPresent(existing -> {
+        playerRepository.findByWissenIdAndLocationIgnoreCase(req.getWissenId(), city).ifPresent(existing -> {
             if (!existing.getId().equals(id)) {
-                throw new IllegalArgumentException("Wissen ID " + req.getWissenId() + " is already in use.");
+                throw new IllegalArgumentException("Wissen ID " + req.getWissenId() + " is already in use in city: " + city);
             }
         });
 
@@ -198,8 +199,11 @@ public class PlayerService {
     // ---- EXCEL IMPORT ----
 
     @Transactional
-    public List<PlayerDTO> importFromExcel(MultipartFile file, String city) throws IOException {
+    public PlayerImportResponse importFromExcel(MultipartFile file, String city) throws IOException {
         Map<String, Player> toSaveMap = new LinkedHashMap<>();
+        List<String> skipReasons = new ArrayList<>();
+        int totalRows = 0;
+        int skippedCount = 0;
 
         try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
             Sheet sheet = null;
@@ -288,6 +292,8 @@ public class PlayerService {
                     continue; // skip header row and any metadata rows above it
                 if (isRowBlank(row))
                     continue; // skip completely blank/empty rows
+
+                totalRows++;
 
                 // 1. Process Email
                 String email = "";
@@ -383,18 +389,31 @@ public class PlayerService {
                 else if (skillLevel == Player.SkillLevel.Advanced)
                     basePrice = 8000;
 
-                // Retrieve player from toSaveMap (if duplicated in Excel) or database (if
-                // already exists)
-                Player player = toSaveMap.get(wissenId);
-                if (player == null) {
-                    player = playerRepository.findByWissenId(wissenId).orElse(null);
+                // Skip if this player already exists in the database or has been processed in this sheet
+                if (toSaveMap.containsKey(wissenId)) {
+                    Player firstSeen = toSaveMap.get(wissenId);
+                    String msg = String.format("Row %d: Duplicate ID '%s' in sheet (already parsed as '%s')",
+                                               row.getRowNum() + 1, wissenId, firstSeen.getFullName());
+                    log.info("Excel Import: " + msg);
+                    skipReasons.add(msg);
+                    skippedCount++;
+                    continue;
                 }
-                if (player == null) {
-                    player = Player.builder()
-                            .wissenId(wissenId)
-                            .status(Player.PlayerStatus.UNSOLD)
-                            .build();
+                java.util.Optional<Player> existingPlayerOpt = playerRepository.findByWissenIdAndLocationIgnoreCase(wissenId, city);
+                if (existingPlayerOpt.isPresent()) {
+                    Player existing = existingPlayerOpt.get();
+                    String msg = String.format("Row %d: ID '%s' exists in DB (Player: '%s', City: '%s')",
+                                               row.getRowNum() + 1, wissenId, existing.getFullName(), existing.getLocation());
+                    log.info("Excel Import: " + msg);
+                    skipReasons.add(msg);
+                    skippedCount++;
+                    continue;
                 }
+
+                Player player = Player.builder()
+                        .wissenId(wissenId)
+                        .status(Player.PlayerStatus.UNSOLD)
+                        .build();
 
                 // Update properties in-place
                 player.setFullName(fullName);
@@ -411,10 +430,18 @@ public class PlayerService {
             }
         }
 
-        return playerRepository.saveAll(toSaveMap.values())
+        List<PlayerDTO> saved = playerRepository.saveAll(toSaveMap.values())
                 .stream()
                 .map(PlayerDTO::from)
                 .collect(Collectors.toList());
+
+        return PlayerImportResponse.builder()
+                .importedPlayers(saved)
+                .totalRows(totalRows)
+                .importedCount(saved.size())
+                .skippedCount(skippedCount)
+                .skipReasons(skipReasons)
+                .build();
     }
 
     // ---- BULK DELETE ----

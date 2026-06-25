@@ -39,8 +39,60 @@ public class DataInitializer implements CommandLineRunner {
                 java.sql.Statement stmt = conn.createStatement()) {
             stmt.execute("ALTER TABLE players ALTER COLUMN years_of_experience TYPE VARCHAR(255)");
             log.info("Successfully altered players.years_of_experience column to VARCHAR(255)");
+
+            // Drop global unique constraint and global unique index on wissen_id if present
+            stmt.execute("""
+                DO $$
+                DECLARE
+                    constraint_name_var text;
+                    index_name_var text;
+                BEGIN
+                    -- 1. Try to find and drop constraint
+                    SELECT conname INTO constraint_name_var
+                    FROM pg_constraint con
+                    JOIN pg_class rel ON rel.oid = con.conrelid
+                    JOIN pg_attribute att ON att.attrelid = rel.oid AND att.attnum = ANY(con.conkey)
+                    WHERE rel.relname = 'players' 
+                      AND con.contype = 'u' 
+                      AND att.attname = 'wissen_id'
+                      AND array_length(con.conkey, 1) = 1;
+                
+                    IF constraint_name_var IS NOT NULL THEN
+                        EXECUTE 'ALTER TABLE players DROP CONSTRAINT ' || constraint_name_var || ' CASCADE';
+                    END IF;
+
+                    -- 2. Try to find and drop index
+                    SELECT c.relname INTO index_name_var
+                    FROM pg_index i
+                    JOIN pg_class c ON c.oid = i.indexrelid
+                    JOIN pg_class t ON t.oid = i.indrelid
+                    JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(i.indkey)
+                    WHERE t.relname = 'players'
+                      AND i.indisunique = true
+                      AND a.attname = 'wissen_id'
+                      AND i.indnatts = 1;
+
+                    IF index_name_var IS NOT NULL THEN
+                        EXECUTE 'DROP INDEX ' || index_name_var || ' CASCADE';
+                    END IF;
+                END $$;
+                """);
+            log.info("Successfully checked and dropped global unique constraint/index on players.wissen_id");
+
+            // Add composite unique constraint on (wissen_id, location) if not present
+            stmt.execute("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM pg_constraint WHERE conname = 'uk_players_wissen_id_location'
+                    ) THEN
+                        ALTER TABLE players ADD CONSTRAINT uk_players_wissen_id_location UNIQUE (wissen_id, location);
+                    END IF;
+                END $$;
+                """);
+            log.info("Successfully checked and added composite unique constraint uk_players_wissen_id_location");
         } catch (Exception e) {
-            log.warn("Could not alter years_of_experience column (it might already be VARCHAR): {}", e.getMessage());
+            log.warn("Error running schema migrations: {}", e.getMessage());
         }
 
         // NOTE: logo_url, logo_svg, image_url columns were previously altered to TEXT

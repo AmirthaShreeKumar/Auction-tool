@@ -5,6 +5,27 @@ import { Trophy, Plus, ShieldAlert, CheckCircle2, AlertTriangle, Eye, X, Trash2,
 import html2canvas from 'html2canvas';
 import TeamCardExport from '../components/TeamCardExport';
 import TeamLogo from '../components/TeamLogo';
+const PlayerAvatar = ({ imageUrl, fullName }) => {
+  const [imgError, setImgError] = useState(false);
+
+  if (imageUrl && !imgError) {
+    return (
+      <img 
+        src={imageUrl} 
+        alt={fullName} 
+        onError={() => setImgError(true)} 
+        style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+      />
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 100 100" style={{ width: '100%', height: '100%', background: '#1e293b' }}>
+      <circle cx="50" cy="35" r="20" fill="#94a3b8" />
+      <path d="M15 85 C 15 65, 30 55, 50 55 C 70 55, 85 65, 85 85 Z" fill="#64748b" />
+    </svg>
+  );
+};
 
 const TeamsPage = () => {
   const { city, role } = useParams();
@@ -227,6 +248,8 @@ const TeamsPage = () => {
     }
   };
 
+  const currentActiveTeam = cityTeams.find(t => t.id === activeRosterTeam?.id) || cityTeams[0] || null;
+
   return (
     <div>
       {/* Page Header */}
@@ -247,243 +270,337 @@ const TeamsPage = () => {
         )}
       </div>
 
-      {/* Teams Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '24px' }}>
-        {cityTeams.map((team) => {
-          const isRosterFull = team.totalPlayers === businessRules.teamSizeLimit;
-          const isFemaleCompliant = team.femalePlayers >= businessRules.minFemales;
-          const isBeginnerCompliant = team.beginnerPlayers >= businessRules.minBeginners;
+      {/* Main Split View Layout */}
+      <div style={{ 
+        display: 'flex', 
+        gap: '24px', 
+        marginTop: '20px', 
+        alignItems: 'flex-start', 
+        flexWrap: 'wrap' 
+      }}>
+        
+        {/* Left Column: Team List Sidebar */}
+        <div style={{ 
+          flex: '1 1 350px', 
+          maxWidth: '420px', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          gap: '12px', 
+          maxHeight: 'calc(100vh - 160px)', 
+          overflowY: 'auto', 
+          paddingRight: '12px' 
+        }}>
+          {cityTeams.map((team) => {
+            const isRosterFull = team.totalPlayers === businessRules.teamSizeLimit;
+            const isFemaleCompliant = team.femalePlayers >= businessRules.minFemales;
+            const isBeginnerCompliant = team.beginnerPlayers >= businessRules.minBeginners;
+            const isSelected = currentActiveTeam?.id === team.id;
+            
+            const spentPurse = businessRules.purseLimit - team.purseRemaining;
+            const spentPct = (spentPurse / businessRules.purseLimit) * 100;
+            const advancedCount = team.players ? team.players.filter(p => p.skillLevel?.toLowerCase() === 'advanced').length : 0;
 
-          return (
-            <div 
-              key={team.teamName} 
-              className="glass-panel team-card" 
-              style={{ 
-                '--team-color': team.themeColor || '#1d4ed8',
-                padding: '24px', 
-                display: 'flex', 
-                flexDirection: 'column', 
-                justifyContent: 'space-between', 
-                border: '1px solid var(--border-color)', 
-                position: 'relative',
-                transition: 'all 0.3s ease'
-              }}
-            >
-              <div>
-                {/* Team header */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <h3 style={{ fontSize: '1.4rem', color: team.themeColor || 'white', fontWeight: '800' }}>{team.teamName}</h3>
-                      {role === 'admin' && (
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                          <button 
-                            onClick={() => handleEditClick(team)}
-                            style={{
-                              width: '28px',
-                              height: '28px',
-                              borderRadius: '6px',
-                              background: 'rgba(59, 130, 246, 0.1)',
-                              border: '1px solid rgba(59, 130, 246, 0.2)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              color: '#3b82f6',
-                              cursor: 'pointer'
-                            }}
-                            title="Edit Team"
-                          >
-                            <Pencil size={14} />
-                          </button>
-                          <button 
-                            onClick={() => handleDeleteTeam(team)}
-                            style={{
-                              width: '28px',
-                              height: '28px',
-                              borderRadius: '6px',
-                              background: 'rgba(239, 68, 68, 0.1)',
-                              border: '1px solid rgba(239, 68, 68, 0.2)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              color: '#ef4444',
-                              cursor: 'pointer'
-                            }}
-                            title="Delete Team"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', display: 'block', marginTop: '4px' }}>Owner: <strong style={{ color: 'white' }}>{team.ownerName}</strong></span>
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
+            return (
+              <div 
+                key={team.id || team.teamName} 
+                className="glass-panel team-card" 
+                onClick={() => setActiveRosterTeam(team)}
+                style={{ 
+                  '--team-color': team.themeColor || '#1d4ed8',
+                  padding: '16px', 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  border: isSelected 
+                    ? `2px solid ${team.themeColor || 'var(--color-primary)'}` 
+                    : '1px solid var(--border-color)', 
+                  boxShadow: isSelected 
+                    ? `0 0 15px rgba(255,255,255,0.05)` 
+                    : 'none',
+                  borderRadius: '12px',
+                  cursor: 'pointer',
+                  position: 'relative',
+                  transition: 'all 0.3s ease'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                     <TeamLogo teamName={team.teamName} themeColor={team.themeColor || '#1d4ed8'} size={40} logoUrl={team.logoUrl} logoSvg={team.logoSvg} />
-                  </div>
-                </div>
-
-                {/* Purse Remaining */}
-                <div style={{ background: 'rgba(0, 240, 255, 0.03)', border: '1px solid rgba(0, 240, 255, 0.1)', padding: '12px 16px', borderRadius: '8px', marginBottom: '20px' }}>
-                  <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--color-secondary)', fontWeight: '700', letterSpacing: '0.05em' }}>Purse Remaining</div>
-                  <div style={{ fontSize: '1.6rem', fontWeight: '800', color: 'white', fontFamily: 'var(--font-display)', marginTop: '2px' }}>
-                    {team.purseRemaining.toLocaleString()} <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', fontWeight: 'normal' }}>/ {businessRules.purseLimit.toLocaleString()} pts</span>
-                  </div>
-                </div>
-
-                {/* Compliance Indicators */}
-                <div style={{ marginBottom: '24px' }}>
-                  <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--color-text-muted)', fontWeight: '700', letterSpacing: '0.05em', marginBottom: '10px' }}>Roster Compliance</div>
-                  
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {/* Players Count indicator */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem' }}>
-                      <span style={{ color: 'var(--color-text-muted)' }}>Players Count (Max 10):</span>
-                      <span className={getRosterCompliance(team.totalPlayers, businessRules.teamSizeLimit)}>
-                        {team.totalPlayers === businessRules.teamSizeLimit ? (
-                          <CheckCircle2 size={12} style={{ marginRight: '4px', verticalAlign: 'middle', display: 'inline' }} />
-                        ) : null}
-                        {team.totalPlayers} / 10
-                      </span>
-                    </div>
-
-                    {/* Female Players Count */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem' }}>
-                      <span style={{ color: 'var(--color-text-muted)' }}>Female Players (Min 2):</span>
-                      <span className={getComplianceStatus(team.femalePlayers, businessRules.minFemales)}>
-                        {isFemaleCompliant ? (
-                          <CheckCircle2 size={12} style={{ marginRight: '4px', verticalAlign: 'middle', display: 'inline' }} />
-                        ) : (
-                          <AlertTriangle size={12} style={{ marginRight: '4px', verticalAlign: 'middle', display: 'inline' }} />
-                        )}
-                        {team.femalePlayers} / 2
-                      </span>
-                    </div>
-
-                    {/* Beginner Players Count */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem' }}>
-                      <span style={{ color: 'var(--color-text-muted)' }}>Beginner Players (Min 2):</span>
-                      <span className={getComplianceStatus(team.beginnerPlayers, businessRules.minBeginners)}>
-                        {isBeginnerCompliant ? (
-                          <CheckCircle2 size={12} style={{ marginRight: '4px', verticalAlign: 'middle', display: 'inline' }} />
-                        ) : (
-                          <AlertTriangle size={12} style={{ marginRight: '4px', verticalAlign: 'middle', display: 'inline' }} />
-                        )}
-                        {team.beginnerPlayers} / 2
-                      </span>
+                    <div>
+                      <h4 style={{ fontSize: '0.95rem', fontWeight: 'bold', color: team.themeColor || 'white', margin: 0 }}>{team.teamName}</h4>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{team.ownerName}</span>
                     </div>
                   </div>
-                </div>
-              </div>
-
-              {/* Roster actions */}
-              <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px', marginTop: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-                  Purchased: <strong style={{ color: 'white' }}>{team.totalPlayers} player{team.totalPlayers !== 1 ? 's' : ''}</strong>
-                </span>
-                <button 
-                  onClick={() => setActiveRosterTeam(team)}
-                  className="btn btn-secondary" 
-                  style={{ padding: '6px 12px', fontSize: '0.75rem', display: 'flex', gap: '4px' }}
-                >
-                  <Eye size={12} />
-                  View Roster
-                </button>
-              </div>
-            </div>
-          );
-        })}
-        {cityTeams.length === 0 && (
-          <div className="glass-panel" style={{ gridColumn: '1 / -1', padding: '40px', textAlign: 'center', color: 'var(--color-text-muted)' }}>
-            No teams created for {city.toUpperCase()} location yet. {role === 'admin' ? 'Click "Create Team" above to register a new franchise.' : ''}
-          </div>
-        )}
-      </div>
-
-      {/* Team Roster details modal */}
-      {activeRosterTeam && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '1100px', width: '95%', maxHeight: '95vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <div className="modal-header" style={{ flexShrink: 0 }}>
-              <div>
-                <h3 className="modal-title">{activeRosterTeam.teamName} Roster</h3>
-                <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>Owner: {activeRosterTeam.ownerName} &bull; Purse Remaining: {activeRosterTeam.purseRemaining.toLocaleString()} pts</span>
-              </div>
-              <button className="close-btn" onClick={() => setActiveRosterTeam(null)}>&times;</button>
-            </div>
-
-            <div style={{ marginTop: '10px', flex: 1, overflowY: 'auto', paddingRight: '4px' }} className="hide-scrollbar">
-              {activeRosterTeam.players.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '30px', color: 'var(--color-text-muted)', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                  No players purchased yet during this auction.
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '10px' }}>
-                  {activeRosterTeam.players.map((p) => (
-                    <div key={p.id} style={{
-                      background: 'rgba(255,255,255,0.03)',
-                      border: '1px solid var(--border-color)',
-                      borderRadius: '8px',
-                      padding: '12px',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'flex-start'
-                    }}>
-                      <div>
-                        <div style={{ fontSize: '0.95rem', fontWeight: 'bold', color: 'white', marginBottom: '2px' }}>{p.fullName}</div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: '8px' }}>ID: <strong style={{ color: 'white' }}>{p.wissenId}</strong></div>
-                        <div style={{ display: 'flex', gap: '6px', fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
-                          <span style={{ background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: '4px' }}>{p.gender}</span>
-                          <span style={{ background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: '4px' }}>{p.skillLevel}</span>
-                        </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={(e) => e.stopPropagation()}>
+                    {(!isFemaleCompliant || !isBeginnerCompliant) && (
+                      <AlertTriangle size={14} style={{ color: 'var(--color-warning)' }} title="Roster requirements unmet" />
+                    )}
+                    {role === 'admin' && (
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        <button 
+                          onClick={() => handleEditClick(team)}
+                          style={{
+                            width: '24px',
+                            height: '24px',
+                            borderRadius: '4px',
+                            background: 'rgba(59, 130, 246, 0.1)',
+                            border: '1px solid rgba(59, 130, 246, 0.2)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#3b82f6',
+                            cursor: 'pointer'
+                          }}
+                          title="Edit Team"
+                        >
+                          <Pencil size={12} />
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteTeam(team)}
+                          style={{
+                            width: '24px',
+                            height: '24px',
+                            borderRadius: '4px',
+                            background: 'rgba(239, 68, 68, 0.1)',
+                            border: '1px solid rgba(239, 68, 68, 0.2)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#ef4444',
+                            cursor: 'pointer'
+                          }}
+                          title="Delete Team"
+                        >
+                          <Trash2 size={12} />
+                        </button>
                       </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
-                        <div style={{ textAlign: 'right' }}>
-                          <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: 'var(--color-text-muted)' }}>Cost</div>
-                          <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--color-primary)' }}>
-                            {p.soldPrice?.toLocaleString() || p.basePrice.toLocaleString()} pts
+                    )}
+                    {isSelected ? (
+                      <span style={{ color: team.themeColor || 'white', fontWeight: 'bold', fontSize: '0.9rem', marginLeft: '4px' }}>▼</span>
+                    ) : (
+                      <span style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginLeft: '4px' }}>▶</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Counts Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', marginTop: '12px' }}>
+                  <div style={{ background: 'rgba(255,255,255,0.02)', padding: '6px 4px', borderRadius: '6px', textAlign: 'center', border: '1px solid var(--border-color)' }}>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'white' }}>{team.totalPlayers || 0}/{businessRules.teamSizeLimit}</div>
+                    <div style={{ fontSize: '0.6rem', color: 'var(--color-text-muted)' }}>Players</div>
+                  </div>
+                  <div style={{ background: 'rgba(255,255,255,0.02)', padding: '6px 4px', borderRadius: '6px', textAlign: 'center', border: '1px solid var(--border-color)' }}>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'white' }}>{team.beginnerPlayers || 0}</div>
+                    <div style={{ fontSize: '0.6rem', color: 'var(--color-text-muted)' }}>Beginner</div>
+                  </div>
+                  <div style={{ background: 'rgba(255,255,255,0.02)', padding: '6px 4px', borderRadius: '6px', textAlign: 'center', border: '1px solid var(--border-color)' }}>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'white' }}>{team.femalePlayers || 0}</div>
+                    <div style={{ fontSize: '0.6rem', color: 'var(--color-text-muted)' }}>Female</div>
+                  </div>
+                  <div style={{ background: 'rgba(255,255,255,0.02)', padding: '6px 4px', borderRadius: '6px', textAlign: 'center', border: '1px solid var(--border-color)' }}>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'white' }}>{advancedCount}</div>
+                    <div style={{ fontSize: '0.6rem', color: 'var(--color-text-muted)' }}>Advanced</div>
+                  </div>
+                </div>
+
+                {/* Purse Progress Bar */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', marginTop: '12px', color: 'var(--color-text-muted)' }}>
+                  <span>Purse</span>
+                  <span style={{ fontWeight: 'bold', color: 'white' }}>{team.purseRemaining.toLocaleString()} pts</span>
+                </div>
+                <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.08)', borderRadius: '2px', marginTop: '4px', overflow: 'hidden' }}>
+                  <div style={{ width: `${100 - spentPct}%`, height: '100%', background: 'var(--color-success)', borderRadius: '2px' }} />
+                </div>
+              </div>
+            );
+          })}
+          {cityTeams.length === 0 && (
+            <div className="glass-panel" style={{ padding: '40px', textAlign: 'center', color: 'var(--color-text-muted)' }}>
+              No teams created for {city.toUpperCase()} location yet.
+            </div>
+          )}
+        </div>
+
+        {/* Right Column: Selected Team Details Panel */}
+        <div style={{ flex: '2 1 600px', minWidth: '350px' }}>
+          {currentActiveTeam ? (
+            <div className="glass-panel" style={{ padding: '24px', border: '1px solid var(--border-color)', borderRadius: '16px', display: 'flex', flexDirection: 'column' }}>
+              
+              {/* Logo / Header details */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '20px' }}>
+                <TeamLogo teamName={currentActiveTeam.teamName} themeColor={currentActiveTeam.themeColor || '#1d4ed8'} size={90} logoUrl={currentActiveTeam.logoUrl} logoSvg={currentActiveTeam.logoSvg} />
+                <h3 style={{ fontSize: '1.8rem', fontWeight: '800', color: 'white', margin: 0, textTransform: 'uppercase', letterSpacing: '-0.02em' }}>
+                  {currentActiveTeam.teamName}
+                </h3>
+                <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>Owner: <strong>{currentActiveTeam.ownerName}</strong></span>
+                
+                <div style={{ marginTop: '12px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--color-text-muted)', fontWeight: '700', letterSpacing: '0.05em' }}>Purse Remaining</div>
+                  <div style={{ fontSize: '2.2rem', fontWeight: '900', color: 'var(--color-success)', fontFamily: 'var(--font-display)', marginTop: '2px' }}>
+                    {currentActiveTeam.purseRemaining.toLocaleString()} <span style={{ fontSize: '1rem', color: 'var(--color-text-muted)', fontWeight: 'normal' }}>pts</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quota Compliance Cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+                {/* Beginner Quota */}
+                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', fontWeight: '600' }}>Beginner Quota</span>
+                    {currentActiveTeam.beginnerPlayers >= businessRules.minBeginners ? (
+                      <span style={{ color: 'var(--color-success)', fontSize: '0.75rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <CheckCircle2 size={12} /> Met
+                      </span>
+                    ) : (
+                      <span style={{ color: 'var(--color-warning)', fontSize: '0.75rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <AlertTriangle size={12} /> Unmet
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '1.4rem', fontWeight: '800', color: 'white' }}>
+                    {currentActiveTeam.beginnerPlayers || 0} / {businessRules.minBeginners || 2}
+                  </div>
+                </div>
+
+                {/* Female Quota */}
+                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', fontWeight: '600' }}>Female Quota</span>
+                    {currentActiveTeam.femalePlayers >= businessRules.minFemales ? (
+                      <span style={{ color: 'var(--color-success)', fontSize: '0.75rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <CheckCircle2 size={12} /> Met
+                      </span>
+                    ) : (
+                      <span style={{ color: 'var(--color-warning)', fontSize: '0.75rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <AlertTriangle size={12} /> Unmet
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '1.4rem', fontWeight: '800', color: 'white' }}>
+                    {currentActiveTeam.femalePlayers || 0} / {businessRules.minFemales || 2}
+                  </div>
+                </div>
+              </div>
+
+              {/* Roster / Player Cards */}
+              <div style={{ flex: 1 }}>
+                <h4 style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>
+                  Roster Players ({currentActiveTeam.players.length})
+                </h4>
+
+                {currentActiveTeam.players.length === 0 ? (
+                  <div style={{ 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    gap: '12px', 
+                    padding: '60px 20px', 
+                    background: 'rgba(255,255,255,0.01)', 
+                    borderRadius: '12px', 
+                    border: '1px dashed var(--border-color)', 
+                    color: 'var(--color-text-muted)' 
+                  }}>
+                    <Eye size={40} style={{ opacity: 0.2 }} />
+                    <span>No players acquired yet</span>
+                  </div>
+                ) : (
+                  <div style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', 
+                    gap: '12px', 
+                    maxHeight: '40vh', 
+                    overflowY: 'auto', 
+                    paddingRight: '12px' 
+                  }}>
+                    {currentActiveTeam.players.map((p) => (
+                      <div key={p.id} style={{
+                        background: 'rgba(255,255,255,0.02)',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '12px',
+                        padding: '12px',
+                        display: 'flex',
+                        gap: '12px',
+                        alignItems: 'center'
+                      }}>
+                        {/* Player Picture placeholder */}
+                        <div style={{
+                          width: '50px',
+                          height: '50px',
+                          borderRadius: '8px',
+                          background: '#1e293b',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          overflow: 'hidden',
+                          flexShrink: 0
+                        }}>
+                          <PlayerAvatar imageUrl={p.imageUrl} fullName={p.fullName} />
+                        </div>
+
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '0.9rem', fontWeight: 'bold', color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {p.fullName}
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
+                            ID: <strong style={{ color: 'white' }}>{p.wissenId}</strong>
+                          </div>
+                          <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+                            <span style={{ fontSize: '0.65rem', background: 'rgba(255,255,255,0.05)', color: 'white', padding: '1px 4px', borderRadius: '4px' }}>{p.gender}</span>
+                            <span style={{ fontSize: '0.65rem', background: 'rgba(255,255,255,0.05)', color: 'white', padding: '1px 4px', borderRadius: '4px' }}>{p.skillLevel}</span>
                           </div>
                         </div>
-                        {role === 'admin' && (
-                          <button
-                            onClick={() => handleReleasePlayer(activeRosterTeam, p)}
-                            title="Release player (mark as unsold & refund purse)"
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              padding: '6px',
-                              borderRadius: '6px',
-                              background: 'rgba(239, 68, 68, 0.1)',
-                              border: '1px solid rgba(239, 68, 68, 0.3)',
-                              color: '#ef4444',
-                              cursor: 'pointer',
-                              transition: 'all 0.2s'
-                            }}
-                            onMouseEnter={(e) => { e.currentTarget.style.background = '#ef4444'; e.currentTarget.style.color = 'white'; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'; e.currentTarget.style.color = '#ef4444'; }}
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        )}
+
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px', flexShrink: 0 }}>
+                          <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--color-primary)' }}>
+                            {(p.soldPrice || p.basePrice).toLocaleString()} pts
+                          </span>
+                          {role === 'admin' && (
+                            <button
+                              onClick={() => handleReleasePlayer(currentActiveTeam, p)}
+                              title="Release player (mark as unsold & refund purse)"
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: 'var(--color-danger)',
+                                cursor: 'pointer',
+                                padding: '4px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Bottom stats and download button */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'flex', gap: '16px', fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+                  <span>Total spent: <strong style={{ color: 'white' }}>{(businessRules.purseLimit - currentActiveTeam.purseRemaining).toLocaleString()} pts</strong></span>
+                  <span>&bull;</span>
+                  <span>Slots: <strong style={{ color: 'white' }}>{currentActiveTeam.totalPlayers} / {businessRules.teamSizeLimit}</strong></span>
                 </div>
-              )}
+                <button className="btn btn-primary" onClick={() => handleDownloadRoster(currentActiveTeam)} style={{ padding: '6px 16px', fontSize: '0.8rem' }}>
+                  <Download size={14} /> Download Roster PNG
+                </button>
+              </div>
+
             </div>
-            
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px', gap: '12px', flexShrink: 0 }}>
-              <button className="btn btn-primary" onClick={() => handleDownloadRoster(activeRosterTeam)}>
-                <Download size={16} /> Download Roster PNG
-              </button>
-              <button className="btn btn-secondary" onClick={() => setActiveRosterTeam(null)}>
-                Close
-              </button>
+          ) : (
+            <div className="glass-panel" style={{ padding: '40px', textAlign: 'center', color: 'var(--color-text-muted)' }}>
+              No team selected. Click on a team from the list to view details.
             </div>
-          </div>
+          )}
         </div>
-      )}
+
+      </div>
 
       {/* Create Team Modal (Admin Only) */}
       {showCreateModal && role === 'admin' && (
@@ -678,7 +795,7 @@ const TeamsPage = () => {
 
       {/* Hidden Roster Poster for Download */}
       <div style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>
-        <TeamCardExport ref={posterRef} team={activeRosterTeam || teams[0]} />
+        <TeamCardExport ref={posterRef} team={currentActiveTeam || teams[0]} />
       </div>
 
     </div>

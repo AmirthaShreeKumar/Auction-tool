@@ -13,7 +13,9 @@ import java.math.BigDecimal;
  * Scoped to a city/location. Tracks skill, gender, base price, and sold status.
  */
 @Entity
-@Table(name = "players")
+@Table(name = "players", uniqueConstraints = {
+    @UniqueConstraint(name = "uk_players_wissen_id_location", columnNames = {"wissen_id", "location"})
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -24,8 +26,8 @@ public class Player {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /** Employee / Wissen ID – unique per player */
-    @Column(name = "wissen_id", unique = true, nullable = false)
+    /** Employee / Wissen ID – unique per player per location */
+    @Column(name = "wissen_id", nullable = false)
     @NotBlank
     private String wissenId;
 

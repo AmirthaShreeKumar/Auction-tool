@@ -12,7 +12,8 @@ import {
   Users, 
   Coins,
   PlayCircle,
-  SkipForward
+  SkipForward,
+  ArrowLeft
 } from 'lucide-react';
 
 const AuctionPage = () => {
@@ -46,12 +47,28 @@ const AuctionPage = () => {
   // Modal state for selecting team
   const [showTeamModal, setShowTeamModal] = useState(false);
 
+  // Lots selection states (Admin only)
+  const [isLotSelected, setIsLotSelected] = useState(false);
+  const [selectedGender, setSelectedGender] = useState('Female');
+  const [selectedSkill, setSelectedSkill] = useState('Beginner');
+
   // Helper to count remaining players for filter options
   const getFilteredCount = (skill, gender) => {
     if (!players) return 0;
     return players.filter(p => 
       p.location?.toLowerCase() === city?.toLowerCase() && 
       p.status === 'UNSOLD' && 
+      (skill === 'All' || p.skillLevel === skill) &&
+      (gender === 'All' || p.gender === gender)
+    ).length;
+  };
+
+  // Helper to count skipped/passed players for filter options
+  const getPassedCount = (skill, gender) => {
+    if (!players) return 0;
+    return players.filter(p => 
+      p.location?.toLowerCase() === city?.toLowerCase() && 
+      p.status === 'PASSED' && 
       (skill === 'All' || p.skillLevel === skill) &&
       (gender === 'All' || p.gender === gender)
     ).length;
@@ -66,6 +83,26 @@ const AuctionPage = () => {
       return () => clearTimeout(timer);
     }
   }, [currentBid]);
+
+  // Dynamically enlarge main-content width on this page to utilize side spaces
+  useEffect(() => {
+    const mainContent = document.querySelector('.main-content');
+    if (mainContent) {
+      const originalMaxWidth = mainContent.style.maxWidth;
+      const originalWidth = mainContent.style.width;
+      const originalPadding = mainContent.style.padding;
+      
+      mainContent.style.maxWidth = '1800px';
+      mainContent.style.width = '96%';
+      mainContent.style.padding = '20px 24px';
+      
+      return () => {
+        mainContent.style.maxWidth = originalMaxWidth;
+        mainContent.style.width = originalWidth;
+        mainContent.style.padding = originalPadding;
+      };
+    }
+  }, []);
 
   // Reset error when player changes
   const [imgError, setImgError] = useState(false);
@@ -137,86 +174,329 @@ const AuctionPage = () => {
     }
   };
 
+  if (role === 'admin' && !isLotSelected) {
+    const unsoldCount = getFilteredCount(selectedSkill, selectedGender);
+    const passedCount = getPassedCount(selectedSkill, selectedGender);
+    const totalMatchingCount = unsoldCount + passedCount;
+    
+    return (
+      <div>
+        {/* Page Header */}
+        <div className="page-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '8px', marginBottom: '30px' }}>
+          <h2 className="page-title" style={{ fontSize: '2.4rem' }}>Configure Auction Lot</h2>
+          <p className="page-subtitle" style={{ fontSize: '1.05rem' }}>Select a player category to begin bidding for {city.toUpperCase()} location.</p>
+        </div>
+
+        <div className="glass-panel" style={{ padding: '48px', maxWidth: '1600px', margin: '0 auto', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '40px' }}>
+          
+          {/* Gender Choice Section */}
+          <div>
+            <h4 style={{ fontSize: '1.25rem', color: 'white', marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <User size={22} style={{ color: 'var(--color-primary)' }} />
+              1. Select Gender
+            </h4>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '24px' }}>
+              {[
+                { label: 'Female', value: 'Female' },
+                { label: 'Male', value: 'Male' },
+                { label: 'Both Genders', value: 'All' }
+              ].map((genderOpt) => {
+                const isSelected = selectedGender === genderOpt.value;
+                const uCount = getFilteredCount('All', genderOpt.value);
+                const pCount = getPassedCount('All', genderOpt.value);
+                
+                let countText = '';
+                if (uCount > 0 && pCount > 0) {
+                  countText = `${uCount} Unsold (${pCount} Passed)`;
+                } else if (uCount > 0) {
+                  countText = `${uCount} Player${uCount !== 1 ? 's' : ''} Unsold`;
+                } else if (pCount > 0) {
+                  countText = `${pCount} Player${pCount !== 1 ? 's' : ''} Passed`;
+                } else {
+                  countText = `0 Players`;
+                }
+
+                return (
+                  <div
+                    key={genderOpt.value}
+                    onClick={() => {
+                      setSelectedGender(genderOpt.value);
+                    }}
+                    style={{
+                      padding: '32px',
+                      background: isSelected ? 'rgba(212, 252, 52, 0.05)' : 'rgba(255, 255, 255, 0.01)',
+                      border: isSelected ? '2px solid var(--color-primary)' : '1px solid var(--border-color)',
+                      boxShadow: isSelected ? '0 0 25px rgba(212, 252, 52, 0.18)' : 'none',
+                      borderRadius: '16px',
+                      cursor: 'pointer',
+                      transition: 'all 0.25s ease',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '16px',
+                      position: 'relative'
+                    }}
+                    onMouseOver={(e) => {
+                      if (!isSelected) {
+                        e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)';
+                      }
+                    }}
+                    onMouseOut={(e) => {
+                      if (!isSelected) {
+                        e.currentTarget.style.borderColor = 'var(--border-color)';
+                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.01)';
+                      }
+                    }}
+                  >
+                    {isSelected && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '16px',
+                        right: '16px',
+                        background: 'var(--color-primary)',
+                        color: '#05070f',
+                        borderRadius: '50%',
+                        width: '24px',
+                        height: '24px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}>
+                        <Check size={14} strokeWidth={3} fill="none" />
+                      </div>
+                    )}
+                    <span style={{ fontSize: '1.5rem', fontWeight: '800', color: isSelected ? 'var(--color-primary)' : 'white' }}>
+                      {genderOpt.label}
+                    </span>
+                    <span style={{ fontSize: '1rem', color: isSelected ? 'white' : 'var(--color-text-muted)' }}>
+                      {countText}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Skill Level Selection Section */}
+          <div>
+            <h4 style={{ fontSize: '1.25rem', color: 'white', marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Award size={22} style={{ color: 'var(--color-primary)' }} />
+              2. Select Skill Level
+            </h4>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+              {[
+                { label: 'Beginner', value: 'Beginner' },
+                { label: 'Intermediate', value: 'Intermediate' },
+                { label: 'Advanced', value: 'Advanced' },
+                { label: 'All Levels', value: 'All' }
+              ].map((skillOpt) => {
+                const isSelected = selectedSkill === skillOpt.value;
+                const uCount = getFilteredCount(skillOpt.value, selectedGender);
+                const pCount = getPassedCount(skillOpt.value, selectedGender);
+                
+                let countText = '';
+                let isWarning = false;
+                if (uCount > 0 && pCount > 0) {
+                  countText = `${uCount} Unsold (${pCount} Passed)`;
+                } else if (uCount > 0) {
+                  countText = `${uCount} Unsold`;
+                } else if (pCount > 0) {
+                  countText = `${pCount} Passed`;
+                } else {
+                  countText = `0 Players`;
+                  isWarning = true;
+                }
+                
+                return (
+                  <div
+                    key={skillOpt.value}
+                    onClick={() => setSelectedSkill(skillOpt.value)}
+                    style={{
+                      padding: '24px',
+                      background: isSelected ? 'rgba(212, 252, 52, 0.05)' : 'rgba(255, 255, 255, 0.01)',
+                      border: isSelected ? '2px solid var(--color-primary)' : '1px solid var(--border-color)',
+                      boxShadow: isSelected ? '0 0 25px rgba(212, 252, 52, 0.18)' : 'none',
+                      borderRadius: '12px',
+                      cursor: 'pointer',
+                      transition: 'all 0.25s ease',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '10px',
+                      position: 'relative'
+                    }}
+                    onMouseOver={(e) => {
+                      if (!isSelected) {
+                        e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)';
+                      }
+                    }}
+                    onMouseOut={(e) => {
+                      if (!isSelected) {
+                        e.currentTarget.style.borderColor = 'var(--border-color)';
+                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.01)';
+                      }
+                    }}
+                  >
+                    {isSelected && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '12px',
+                        right: '12px',
+                        background: 'var(--color-primary)',
+                        color: '#05070f',
+                        borderRadius: '50%',
+                        width: '20px',
+                        height: '20px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}>
+                        <Check size={12} strokeWidth={3} fill="none" />
+                      </div>
+                    )}
+                    <span style={{ 
+                      fontSize: '1.15rem', 
+                      fontWeight: '700', 
+                      color: isSelected ? 'var(--color-primary)' : 'white',
+                      textTransform: 'uppercase' 
+                    }}>
+                      {skillOpt.label}
+                    </span>
+                    <span style={{ 
+                      fontSize: '0.9rem', 
+                      color: isWarning ? 'var(--color-danger)' : isSelected ? 'white' : 'var(--color-text-muted)',
+                      fontWeight: isWarning ? '600' : 'normal'
+                    }}>
+                      {countText}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Action Footer */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', marginTop: '16px', borderTop: '1px solid var(--border-color)', paddingTop: '32px' }}>
+            {(() => {
+              const canStart = totalMatchingCount > 0;
+              let buttonText = `Start Auction Lot (${unsoldCount} Player${unsoldCount !== 1 ? 's' : ''})`;
+              if (unsoldCount === 0 && passedCount > 0) {
+                buttonText = `Enter Lot for Re-Auction (${passedCount} Passed)`;
+              }
+              
+              return (
+                <>
+                  <button
+                    onClick={() => {
+                      setAuctionGenderFilter(selectedGender);
+                      setAuctionSkillFilter(selectedSkill);
+                      setIsLotSelected(true);
+                    }}
+                    className="btn btn-primary"
+                    disabled={!canStart}
+                    style={{
+                      padding: '18px 48px',
+                      fontSize: '1.25rem',
+                      minWidth: '320px',
+                      borderRadius: '12px'
+                    }}
+                  >
+                    <PlayCircle size={22} />
+                    {buttonText}
+                  </button>
+                  {!canStart && (
+                    <span style={{ color: 'var(--color-danger)', fontSize: '0.95rem', fontWeight: '600' }}>
+                      No players available (unsold or passed) in this combination. Please select another lot.
+                    </span>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       {/* Page Header */}
-      <div className="page-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '16px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
-          <div>
-            <h2 className="page-title">Live Auction Board</h2>
-            <p className="page-subtitle">Interactive player draft system for {city.toUpperCase()} location.</p>
+      <div className="page-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '16px', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            {role === 'admin' && (
+              <button
+                onClick={() => setIsLotSelected(false)}
+                className="btn btn-secondary"
+                style={{ padding: '8px 12px', fontSize: '0.85rem', display: 'flex', gap: '6px', alignItems: 'center' }}
+              >
+                <ArrowLeft size={16} />
+                Change Lot
+              </button>
+            )}
+            <div>
+              <h2 className="page-title">Live Auction Board</h2>
+              <p className="page-subtitle">Interactive player draft system for {city.toUpperCase()} location.</p>
+            </div>
+          </div>
+          
+          {/* Read-only Badges */}
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{
+              fontSize: '0.8rem',
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid var(--border-color)',
+              color: 'var(--color-text-muted)',
+              padding: '6px 12px',
+              borderRadius: '8px',
+              fontWeight: '600'
+            }}>
+              Gender: <strong style={{ color: 'white' }}>{auctionGenderFilter === 'All' ? 'All Genders' : auctionGenderFilter}</strong>
+            </span>
+            <span style={{
+              fontSize: '0.8rem',
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid var(--border-color)',
+              color: 'var(--color-text-muted)',
+              padding: '6px 12px',
+              borderRadius: '8px',
+              fontWeight: '600'
+            }}>
+              Skill: <strong style={{ color: 'white' }}>{auctionSkillFilter === 'All' ? 'All Levels' : auctionSkillFilter}</strong>
+            </span>
+            <span style={{
+              fontSize: '0.8rem',
+              background: 'rgba(212, 252, 52, 0.08)',
+              border: '1px solid rgba(212, 252, 52, 0.2)',
+              color: 'var(--color-primary)',
+              padding: '6px 12px',
+              borderRadius: '8px',
+              fontWeight: '700'
+            }}>
+              Remaining: {getFilteredCount(auctionSkillFilter, auctionGenderFilter)}
+            </span>
           </div>
         </div>
-        
-        {/* Category Filters */}
-        {role === 'admin' && (
-          <div style={{ display: 'flex', gap: '16px', background: 'rgba(255,255,255,0.02)', padding: '12px 20px', borderRadius: '12px', border: '1px solid var(--border-color)', width: '100%', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>Level Filter:</span>
-              <select 
-                className="form-select" 
-                value={auctionSkillFilter} 
-                onChange={(e) => setAuctionSkillFilter(e.target.value)}
-                style={{ padding: '4px 8px', fontSize: '0.85rem', width: 'auto' }}
-              >
-                <option value="All">All Levels</option>
-                <option value="Beginner">Beginner</option>
-                <option value="Intermediate">Intermediate</option>
-                <option value="Advanced">Advanced</option>
-              </select>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>Gender Filter:</span>
-              <select 
-                className="form-select" 
-                value={auctionGenderFilter} 
-                onChange={(e) => setAuctionGenderFilter(e.target.value)}
-                style={{ padding: '4px 8px', fontSize: '0.85rem', width: 'auto' }}
-              >
-                <option value="All">All Genders</option>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-              </select>
-            </div>
-            
-            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '16px' }}>
-              {auctionGenderFilter === 'All' ? (
-                <>
-                  <div style={{ fontSize: '1.1rem', color: 'var(--color-text-muted)' }}>
-                    Females Remaining: <span style={{ color: 'var(--color-primary)', fontWeight: '800' }}>{getFilteredCount(auctionSkillFilter, 'Female')}</span>
-                  </div>
-                  <div style={{ fontSize: '1.1rem', color: 'var(--color-text-muted)' }}>
-                    Males Remaining: <span style={{ color: 'var(--color-primary)', fontWeight: '800' }}>{getFilteredCount(auctionSkillFilter, 'Male')}</span>
-                  </div>
-                </>
-              ) : auctionGenderFilter === 'Female' ? (
-                <div style={{ fontSize: '1.1rem', color: 'var(--color-text-muted)' }}>
-                  Females Remaining: <span style={{ color: 'var(--color-primary)', fontWeight: '800' }}>{getFilteredCount(auctionSkillFilter, 'Female')}</span>
-                </div>
-              ) : (
-                <div style={{ fontSize: '1.1rem', color: 'var(--color-text-muted)' }}>
-                  Males Remaining: <span style={{ color: 'var(--color-primary)', fontWeight: '800' }}>{getFilteredCount(auctionSkillFilter, 'Male')}</span>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
       <div style={{ 
         display: 'flex', 
         flexDirection: 'row', 
         flexWrap: 'wrap', 
-        gap: '16px', 
+        gap: '24px', 
         alignItems: 'flex-start',
         marginTop: '12px'
       }}>
         
         {/* Left Column: Main Auction Player Frame */}
-        <div style={{ flex: '1 1 48%', minWidth: '450px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div style={{ flex: '1.1 1 50%', minWidth: '550px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {activePlayer ? (
             <div className="glass-panel" style={{ 
-              padding: '24px', 
+              padding: '36px', 
               border: '1px solid var(--border-color)', 
               boxShadow: '0 15px 40px rgba(0,0,0,0.5)',
               position: 'relative',
@@ -224,7 +504,7 @@ const AuctionPage = () => {
             }}>
               
               {/* Corner Watermark */}
-              <Gavel size={180} style={{ 
+              <Gavel size={200} style={{ 
                 position: 'absolute', 
                 bottom: '-20px', 
                 right: '-20px', 
@@ -232,14 +512,14 @@ const AuctionPage = () => {
                 color: 'white',
                 transform: 'rotate(-25deg)'
               }} />
-
+ 
               {/* Player Information Frame */}
-              <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap' }}>
                 
                 {/* Player Profile Photo */}
                 <div style={{ 
-                  width: '140px', 
-                  height: '140px', 
+                  width: '180px', 
+                  height: '180px', 
                   borderRadius: '24px', 
                   background: 'linear-gradient(135deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.08) 100%)',
                   border: '1px solid var(--border-color)',
@@ -259,105 +539,105 @@ const AuctionPage = () => {
                     </svg>
                   )}
                 </div>
-
+ 
                 {/* Player details */}
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                     <span style={{ 
-                      fontSize: '0.8rem', 
+                      fontSize: '0.9rem', 
                       background: 'rgba(255,255,255,0.06)', 
-                      padding: '4px 10px', 
+                      padding: '4px 12px', 
                       borderRadius: '4px',
                       color: 'white',
                       fontWeight: '700'
                     }}>{activePlayer.wissenId}</span>
                     <span style={{ 
-                      fontSize: '0.8rem', 
+                      fontSize: '0.9rem', 
                       background: 'rgba(255,255,255,0.05)', 
                       color: getSkillBadgeColor(activePlayer.skillLevel),
                       border: `1px solid ${getSkillBadgeColor(activePlayer.skillLevel)}33`,
-                      padding: '3px 10px', 
+                      padding: '3px 12px', 
                       borderRadius: '4px',
                       fontWeight: '700',
                       textTransform: 'uppercase'
                     }}>{activePlayer.skillLevel}</span>
                   </div>
-
-                  <h3 style={{ fontSize: '2.2rem', fontWeight: '800', color: 'white', marginTop: '8px', lineHeight: '1.1' }}>
+ 
+                  <h3 style={{ fontSize: '2.8rem', fontWeight: '800', color: 'white', marginTop: '8px', lineHeight: '1.1' }}>
                     {activePlayer.fullName}
                   </h3>
-
-                  <div style={{ display: 'flex', gap: '20px', marginTop: '8px', color: 'var(--color-text-muted)', fontSize: '0.9rem', flexWrap: 'wrap' }}>
+ 
+                  <div style={{ display: 'flex', gap: '20px', marginTop: '12px', color: 'var(--color-text-muted)', fontSize: '1rem', flexWrap: 'wrap' }}>
                     <span>Gender: <strong style={{ color: 'white' }}>{activePlayer.gender}</strong></span>
                     <span>&bull;</span>
                     <span>Experience: <strong style={{ color: 'white' }}>{activePlayer.yearsOfExperience !== null && activePlayer.yearsOfExperience !== undefined && activePlayer.yearsOfExperience !== '' ? `${activePlayer.yearsOfExperience} Year${String(activePlayer.yearsOfExperience) !== '1' ? 's' : ''}` : '-'}</strong></span>
                     <span>&bull;</span>
                     <span>Email: <strong style={{ color: 'white' }}>{activePlayer.email}</strong></span>
                   </div>
-
+ 
                   {activePlayer.stats && (
-                    <div style={{ display: 'flex', gap: '20px', marginTop: '10px', background: 'rgba(255,255,255,0.02)', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', width: 'fit-content' }}>
-                      <div><span style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>Matches Played</span><div style={{ fontWeight: '700', fontSize: '1.1rem', color: 'white' }}>{activePlayer.stats.matchesPlayed}</div></div>
-                      <div><span style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>Won</span><div style={{ fontWeight: '700', fontSize: '1.1rem', color: 'var(--color-success)' }}>{activePlayer.stats.matchesWon}</div></div>
-                      <div><span style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>Lost</span><div style={{ fontWeight: '700', fontSize: '1.1rem', color: 'var(--color-danger)' }}>{activePlayer.stats.matchesLost}</div></div>
+                    <div style={{ display: 'flex', gap: '20px', marginTop: '12px', background: 'rgba(255,255,255,0.02)', padding: '10px 16px', borderRadius: '8px', border: '1px solid var(--border-color)', width: 'fit-content' }}>
+                      <div><span style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>Matches Played</span><div style={{ fontWeight: '700', fontSize: '1.2rem', color: 'white' }}>{activePlayer.stats.matchesPlayed}</div></div>
+                      <div><span style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>Won</span><div style={{ fontWeight: '700', fontSize: '1.2rem', color: 'var(--color-success)' }}>{activePlayer.stats.matchesWon}</div></div>
+                      <div><span style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>Lost</span><div style={{ fontWeight: '700', fontSize: '1.2rem', color: 'var(--color-danger)' }}>{activePlayer.stats.matchesLost}</div></div>
                     </div>
                   )}
                 </div>
               </div>
-
+ 
               {/* Bidding Grid */}
               <div style={{ 
                 display: 'grid', 
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-                gap: '16px', 
-                marginTop: '20px',
-                paddingTop: '16px',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', 
+                gap: '20px', 
+                marginTop: '24px',
+                paddingTop: '20px',
                 borderTop: '1px solid var(--border-color)'
               }}>
                 {/* Base price card */}
-                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px 16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-                  <span style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--color-text-muted)', fontWeight: '600' }}>Base Price</span>
-                  <div style={{ fontSize: '1.8rem', fontWeight: '800', color: 'white', marginTop: '4px' }}>
-                    {activePlayer.basePrice.toLocaleString()} <span style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)', fontWeight: 'normal' }}>pts</span>
+                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '16px 20px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                  <span style={{ fontSize: '0.9rem', textTransform: 'uppercase', color: 'var(--color-text-muted)', fontWeight: '600' }}>Base Price</span>
+                  <div style={{ fontSize: '2rem', fontWeight: '800', color: 'white', marginTop: '4px' }}>
+                    {activePlayer.basePrice.toLocaleString()} <span style={{ fontSize: '1rem', color: 'var(--color-text-muted)', fontWeight: 'normal' }}>pts</span>
                   </div>
                 </div>
-
+ 
                 {/* Current Bid Display */}
                 <div className={animateBid ? 'animate-bid' : ''} style={{ 
                   background: 'rgba(212, 252, 52, 0.04)', 
-                  padding: '12px 16px', 
+                  padding: '16px 20px', 
                   borderRadius: '12px', 
                   border: '1px solid rgba(212, 252, 52, 0.25)',
                   transition: 'all 0.1s ease'
                 }}>
-                  <span style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--color-primary)', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <TrendingUp size={12} />
+                  <span style={{ fontSize: '0.9rem', textTransform: 'uppercase', color: 'var(--color-primary)', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <TrendingUp size={14} />
                     Current Bid
                   </span>
-                  <div style={{ fontSize: '2.2rem', fontWeight: '900', color: 'var(--color-primary)', marginTop: '2px', fontFamily: 'var(--font-display)' }}>
-                    {currentBid.toLocaleString()} <span style={{ fontSize: '1rem', color: 'var(--color-text-muted)', fontWeight: 'normal' }}>pts</span>
+                  <div style={{ fontSize: '2.6rem', fontWeight: '900', color: 'var(--color-primary)', marginTop: '2px', fontFamily: 'var(--font-display)' }}>
+                    {currentBid.toLocaleString()} <span style={{ fontSize: '1.1rem', color: 'var(--color-text-muted)', fontWeight: 'normal' }}>pts</span>
                   </div>
                 </div>
               </div>
-
+ 
               {/* Bidding Error Message */}
               {biddingError && (
                 <div style={{ marginTop: '20px', padding: '12px 16px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#ef4444', borderRadius: '8px', fontSize: '0.85rem' }}>
                   {biddingError}
                 </div>
               )}
-
+ 
               {/* Action Buttons (Admin Only) */}
               {role === 'admin' ? (
-                <div style={{ marginTop: '20px' }}>
-                  <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
+                <div style={{ marginTop: '24px' }}>
+                  <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
                     <button
                       onClick={() => handleBidSubmit(500)}
                       className="btn btn-secondary"
                       style={{
                         flex: 1,
-                        padding: '12px 16px',
-                        fontSize: '1.1rem',
+                        padding: '14px 20px',
+                        fontSize: '1.25rem',
                         background: 'rgba(212, 252, 52, 0.1)',
                         borderColor: 'var(--color-primary)',
                         color: 'var(--color-primary)',
@@ -371,8 +651,8 @@ const AuctionPage = () => {
                       className="btn btn-secondary"
                       style={{
                         flex: 1,
-                        padding: '12px 16px',
-                        fontSize: '1.1rem',
+                        padding: '14px 20px',
+                        fontSize: '1.25rem',
                         background: 'rgba(139, 92, 246, 0.1)',
                         borderColor: 'rgba(139,92,246,0.5)',
                         color: '#a78bfa',
@@ -382,33 +662,33 @@ const AuctionPage = () => {
                       + 1000
                     </button>
                   </div>
-
+ 
                   {/* Direct Controls */}
-                  <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
+                  <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
                     <button 
                       onClick={() => setShowTeamModal(true)} 
                       className="btn btn-primary"
                       disabled={currentBid < activePlayer.basePrice}
-                      style={{ flex: '2 1 auto', minWidth: '150px' }}
+                      style={{ flex: '2 1 auto', minWidth: '180px', padding: '12px 24px', fontSize: '1.1rem' }}
                     >
-                      <Check size={18} />
+                      <Check size={20} />
                       Mark Sold
                     </button>
                     
                     <button 
                       onClick={revertLastBid} 
                       className="btn btn-secondary"
-                      style={{ flex: '1 1 auto', minWidth: '100px', borderColor: 'rgba(251, 191, 36, 0.4)', color: '#fbbf24' }}
+                      style={{ flex: '1 1 auto', minWidth: '110px', padding: '12px 20px', fontSize: '1.1rem', borderColor: 'rgba(251, 191, 36, 0.4)', color: '#fbbf24' }}
                     >
                       ↩ Revert
                     </button>
-
+ 
                     <button 
                       onClick={passPlayer} 
                       className="btn btn-danger"
-                      style={{ flex: '1 1 auto', minWidth: '100px' }}
+                      style={{ flex: '1 1 auto', minWidth: '110px', padding: '12px 20px', fontSize: '1.1rem' }}
                     >
-                      <SkipForward size={18} />
+                      <SkipForward size={20} />
                       Skip
                     </button>
                   </div>
@@ -469,23 +749,23 @@ const AuctionPage = () => {
             </div>
           )}
         </div>
-
+        
         {/* Right Column: Team Roster Status Table */}
-        <div style={{ flex: '1.2 1 48%', minWidth: '550px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div className="glass-panel" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column' }}>
-            <h4 style={{ fontSize: '1rem', color: 'white', marginBottom: '10px', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Users size={18} style={{ color: 'var(--color-primary)' }} />
+        <div style={{ flex: '0.9 1 45%', minWidth: '500px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div className="glass-panel" style={{ padding: '24px 30px', display: 'flex', flexDirection: 'column' }}>
+            <h4 style={{ fontSize: '1.2rem', color: 'white', marginBottom: '14px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Users size={20} style={{ color: 'var(--color-primary)' }} />
               Team Roster Status ({cityTeams.length})
             </h4>
             <div className="custom-table-container" style={{ margin: 0, border: 'none', background: 'transparent' }}>
               <table className="custom-table" style={{ width: '100%' }}>
                 <thead>
                   <tr>
-                    <th style={{ padding: '8px 10px', fontSize: '0.8rem' }}>Team</th>
-                    <th style={{ padding: '8px 10px', fontSize: '0.8rem', textAlign: 'right' }}>Purse</th>
-                    <th style={{ padding: '8px 10px', fontSize: '0.8rem', textAlign: 'center' }}>Female</th>
-                    <th style={{ padding: '8px 10px', fontSize: '0.8rem', textAlign: 'center' }}>Beginner</th>
-                    <th style={{ padding: '8px 10px', fontSize: '0.8rem', textAlign: 'center' }}>Players</th>
+                    <th style={{ padding: '12px 14px', fontSize: '0.88rem' }}>Team</th>
+                    <th style={{ padding: '12px 14px', fontSize: '0.88rem', textAlign: 'right' }}>Purse</th>
+                    <th style={{ padding: '12px 14px', fontSize: '0.88rem', textAlign: 'center' }}>Female</th>
+                    <th style={{ padding: '12px 14px', fontSize: '0.88rem', textAlign: 'center' }}>Beginner</th>
+                    <th style={{ padding: '12px 14px', fontSize: '0.88rem', textAlign: 'center' }}>Players</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -496,59 +776,59 @@ const AuctionPage = () => {
                     const minFemales = businessRules.minFemales || 2;
                     const minBeginners = businessRules.minBeginners || 2;
                     const maxPlayers = businessRules.teamSizeLimit || 10;
-
+ 
                     const femaleRemaining = Math.max(0, minFemales - femaleCount);
                     const beginnerRemaining = Math.max(0, minBeginners - beginnerCount);
-
+ 
                     const requiresFemales = femaleCount < minFemales;
                     const requiresBeginners = beginnerCount < minBeginners;
-
+ 
                     const spentPurse = businessRules.purseLimit - t.purseRemaining;
                     const spentPct = (spentPurse / businessRules.purseLimit) * 100;
                     const isPurseCritical = t.purseRemaining <= 15000;
                     const isPurseWarning = t.purseRemaining > 15000 && t.purseRemaining <= 30000;
-
+ 
                     return (
                       <tr key={t.id || t.teamName}>
-                        <td style={{ padding: '7px 10px', fontSize: '0.85rem', fontWeight: '700', color: t.themeColor || 'white', whiteSpace: 'nowrap' }}>
+                        <td style={{ padding: '10px 14px', fontSize: '0.92rem', fontWeight: '700', color: t.themeColor || 'white', whiteSpace: 'nowrap' }}>
                           {t.teamName}
                         </td>
                         <td style={{ 
-                          padding: '7px 10px', 
-                          fontSize: '0.85rem', 
+                          padding: '10px 14px', 
+                          fontSize: '0.92rem', 
                           textAlign: 'right', 
                           fontWeight: '700',
                           color: isPurseCritical ? 'var(--color-danger)' : isPurseWarning ? 'var(--color-warning)' : 'var(--color-success)'
                         }}>
                           {t.purseRemaining.toLocaleString()}
                         </td>
-                        <td style={{ padding: '7px 10px', fontSize: '0.85rem', textAlign: 'center' }}>
+                        <td style={{ padding: '10px 14px', fontSize: '0.92rem', textAlign: 'center' }}>
                           <span style={{ 
                             fontWeight: '700', 
                             color: requiresFemales ? 'var(--color-warning)' : 'var(--color-success)',
                             background: requiresFemales ? 'rgba(245, 158, 11, 0.08)' : 'rgba(16, 185, 129, 0.08)',
-                            padding: '2px 8px',
+                            padding: '3px 10px',
                             borderRadius: '12px',
                             border: requiresFemales ? '1px solid rgba(245, 158, 11, 0.2)' : '1px solid rgba(16, 185, 129, 0.2)',
-                            fontSize: '0.8rem'
+                            fontSize: '0.85rem'
                           }}>
                             {femaleCount}
                           </span>
                         </td>
-                        <td style={{ padding: '7px 10px', fontSize: '0.85rem', textAlign: 'center' }}>
+                        <td style={{ padding: '10px 14px', fontSize: '0.92rem', textAlign: 'center' }}>
                           <span style={{ 
                             fontWeight: '700', 
                             color: requiresBeginners ? 'var(--color-warning)' : 'var(--color-success)',
                             background: requiresBeginners ? 'rgba(245, 158, 11, 0.08)' : 'rgba(16, 185, 129, 0.08)',
-                            padding: '2px 8px',
+                            padding: '3px 10px',
                             borderRadius: '12px',
                             border: requiresBeginners ? '1px solid rgba(245, 158, 11, 0.2)' : '1px solid rgba(16, 185, 129, 0.2)',
-                            fontSize: '0.8rem'
+                            fontSize: '0.85rem'
                           }}>
                             {beginnerCount}
                           </span>
                         </td>
-                        <td style={{ padding: '7px 10px', fontSize: '0.85rem', textAlign: 'center', fontWeight: '600' }}>
+                        <td style={{ padding: '10px 14px', fontSize: '0.92rem', textAlign: 'center', fontWeight: '600' }}>
                           <span style={{ color: totalCount === maxPlayers ? 'var(--color-success)' : 'white' }}>
                             {totalCount}/{maxPlayers}
                           </span>

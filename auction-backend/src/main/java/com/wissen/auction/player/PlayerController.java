@@ -91,9 +91,9 @@ public class PlayerController {
 
     /** POST /api/{city}/players/import – bulk Excel import (Admin only) */
     @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<List<PlayerDTO>> importPlayers(@PathVariable String city,
-                                                          @RequestParam("file") MultipartFile file,
-                                                          HttpServletRequest httpReq) throws IOException {
+    public ResponseEntity<PlayerImportResponse> importPlayers(@PathVariable String city,
+                                                                 @RequestParam("file") MultipartFile file,
+                                                                 HttpServletRequest httpReq) throws IOException {
         String jwtCity = (String) httpReq.getAttribute("jwtCity");
         validateCity(city, jwtCity);
         return ResponseEntity.ok(playerService.importFromExcel(file, jwtCity));
