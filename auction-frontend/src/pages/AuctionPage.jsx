@@ -207,16 +207,16 @@ const AuctionPage = () => {
         display: 'flex', 
         flexDirection: 'row', 
         flexWrap: 'wrap', 
-        gap: '24px', 
+        gap: '16px', 
         alignItems: 'flex-start',
-        marginTop: '20px'
+        marginTop: '12px'
       }}>
         
         {/* Left Column: Main Auction Player Frame */}
-        <div style={{ flex: '1.4 1 60%', minWidth: '600px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div style={{ flex: '1 1 48%', minWidth: '450px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {activePlayer ? (
             <div className="glass-panel" style={{ 
-              padding: '40px', 
+              padding: '24px', 
               border: '1px solid var(--border-color)', 
               boxShadow: '0 15px 40px rgba(0,0,0,0.5)',
               position: 'relative',
@@ -234,7 +234,7 @@ const AuctionPage = () => {
               }} />
 
               {/* Player Information Frame */}
-              <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
                 
                 {/* Player Profile Photo */}
                 <div style={{ 
@@ -283,11 +283,11 @@ const AuctionPage = () => {
                     }}>{activePlayer.skillLevel}</span>
                   </div>
 
-                  <h3 style={{ fontSize: '2.5rem', fontWeight: '800', color: 'white', marginTop: '12px', lineHeight: '1.1' }}>
+                  <h3 style={{ fontSize: '2.2rem', fontWeight: '800', color: 'white', marginTop: '8px', lineHeight: '1.1' }}>
                     {activePlayer.fullName}
                   </h3>
 
-                  <div style={{ display: 'flex', gap: '20px', marginTop: '12px', color: 'var(--color-text-muted)', fontSize: '0.9rem', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: '20px', marginTop: '8px', color: 'var(--color-text-muted)', fontSize: '0.9rem', flexWrap: 'wrap' }}>
                     <span>Gender: <strong style={{ color: 'white' }}>{activePlayer.gender}</strong></span>
                     <span>&bull;</span>
                     <span>Experience: <strong style={{ color: 'white' }}>{activePlayer.yearsOfExperience !== null && activePlayer.yearsOfExperience !== undefined && activePlayer.yearsOfExperience !== '' ? `${activePlayer.yearsOfExperience} Year${String(activePlayer.yearsOfExperience) !== '1' ? 's' : ''}` : '-'}</strong></span>
@@ -296,7 +296,7 @@ const AuctionPage = () => {
                   </div>
 
                   {activePlayer.stats && (
-                    <div style={{ display: 'flex', gap: '20px', marginTop: '16px', background: 'rgba(255,255,255,0.02)', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--border-color)', width: 'fit-content' }}>
+                    <div style={{ display: 'flex', gap: '20px', marginTop: '10px', background: 'rgba(255,255,255,0.02)', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', width: 'fit-content' }}>
                       <div><span style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>Matches Played</span><div style={{ fontWeight: '700', fontSize: '1.1rem', color: 'white' }}>{activePlayer.stats.matchesPlayed}</div></div>
                       <div><span style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>Won</span><div style={{ fontWeight: '700', fontSize: '1.1rem', color: 'var(--color-success)' }}>{activePlayer.stats.matchesWon}</div></div>
                       <div><span style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>Lost</span><div style={{ fontWeight: '700', fontSize: '1.1rem', color: 'var(--color-danger)' }}>{activePlayer.stats.matchesLost}</div></div>
@@ -309,13 +309,13 @@ const AuctionPage = () => {
               <div style={{ 
                 display: 'grid', 
                 gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-                gap: '24px', 
-                marginTop: '40px',
-                paddingTop: '30px',
+                gap: '16px', 
+                marginTop: '20px',
+                paddingTop: '16px',
                 borderTop: '1px solid var(--border-color)'
               }}>
                 {/* Base price card */}
-                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px 16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
                   <span style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--color-text-muted)', fontWeight: '600' }}>Base Price</span>
                   <div style={{ fontSize: '1.8rem', fontWeight: '800', color: 'white', marginTop: '4px' }}>
                     {activePlayer.basePrice.toLocaleString()} <span style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)', fontWeight: 'normal' }}>pts</span>
@@ -325,7 +325,7 @@ const AuctionPage = () => {
                 {/* Current Bid Display */}
                 <div className={animateBid ? 'animate-bid' : ''} style={{ 
                   background: 'rgba(212, 252, 52, 0.04)', 
-                  padding: '20px', 
+                  padding: '12px 16px', 
                   borderRadius: '12px', 
                   border: '1px solid rgba(212, 252, 52, 0.25)',
                   transition: 'all 0.1s ease'
@@ -349,15 +349,15 @@ const AuctionPage = () => {
 
               {/* Action Buttons (Admin Only) */}
               {role === 'admin' ? (
-                <div style={{ marginTop: '40px' }}>
-                  <div style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
+                <div style={{ marginTop: '20px' }}>
+                  <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
                     <button
                       onClick={() => handleBidSubmit(500)}
                       className="btn btn-secondary"
                       style={{
                         flex: 1,
-                        padding: '20px 20px',
-                        fontSize: '1.25rem',
+                        padding: '12px 16px',
+                        fontSize: '1.1rem',
                         background: 'rgba(212, 252, 52, 0.1)',
                         borderColor: 'var(--color-primary)',
                         color: 'var(--color-primary)',
@@ -371,8 +371,8 @@ const AuctionPage = () => {
                       className="btn btn-secondary"
                       style={{
                         flex: 1,
-                        padding: '20px 20px',
-                        fontSize: '1.25rem',
+                        padding: '12px 16px',
+                        fontSize: '1.1rem',
                         background: 'rgba(139, 92, 246, 0.1)',
                         borderColor: 'rgba(139,92,246,0.5)',
                         color: '#a78bfa',
@@ -384,7 +384,7 @@ const AuctionPage = () => {
                   </div>
 
                   {/* Direct Controls */}
-                  <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
+                  <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
                     <button 
                       onClick={() => setShowTeamModal(true)} 
                       className="btn btn-primary"
@@ -471,9 +471,9 @@ const AuctionPage = () => {
         </div>
 
         {/* Right Column: Team Roster Status Table */}
-        <div style={{ flex: '1 1 35%', minWidth: '400px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column' }}>
-            <h4 style={{ fontSize: '1rem', color: 'white', marginBottom: '14px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ flex: '1.2 1 48%', minWidth: '550px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div className="glass-panel" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column' }}>
+            <h4 style={{ fontSize: '1rem', color: 'white', marginBottom: '10px', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Users size={18} style={{ color: 'var(--color-primary)' }} />
               Team Roster Status ({cityTeams.length})
             </h4>
@@ -481,11 +481,11 @@ const AuctionPage = () => {
               <table className="custom-table" style={{ width: '100%' }}>
                 <thead>
                   <tr>
-                    <th style={{ padding: '12px 8px', fontSize: '0.8rem' }}>Team</th>
-                    <th style={{ padding: '12px 8px', fontSize: '0.8rem', textAlign: 'right' }}>Purse</th>
-                    <th style={{ padding: '12px 8px', fontSize: '0.8rem', textAlign: 'center' }}>Female Bought</th>
-                    <th style={{ padding: '12px 8px', fontSize: '0.8rem', textAlign: 'center' }}>Beginner Bought</th>
-                    <th style={{ padding: '12px 8px', fontSize: '0.8rem', textAlign: 'center' }}>Players</th>
+                    <th style={{ padding: '8px 10px', fontSize: '0.8rem' }}>Team</th>
+                    <th style={{ padding: '8px 10px', fontSize: '0.8rem', textAlign: 'right' }}>Purse</th>
+                    <th style={{ padding: '8px 10px', fontSize: '0.8rem', textAlign: 'center' }}>Female</th>
+                    <th style={{ padding: '8px 10px', fontSize: '0.8rem', textAlign: 'center' }}>Beginner</th>
+                    <th style={{ padding: '8px 10px', fontSize: '0.8rem', textAlign: 'center' }}>Players</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -510,11 +510,11 @@ const AuctionPage = () => {
 
                     return (
                       <tr key={t.id || t.teamName}>
-                        <td style={{ padding: '12px 8px', fontSize: '0.85rem', fontWeight: '700', color: t.themeColor || 'white' }}>
+                        <td style={{ padding: '7px 10px', fontSize: '0.85rem', fontWeight: '700', color: t.themeColor || 'white', whiteSpace: 'nowrap' }}>
                           {t.teamName}
                         </td>
                         <td style={{ 
-                          padding: '12px 8px', 
+                          padding: '7px 10px', 
                           fontSize: '0.85rem', 
                           textAlign: 'right', 
                           fontWeight: '700',
@@ -522,31 +522,33 @@ const AuctionPage = () => {
                         }}>
                           {t.purseRemaining.toLocaleString()}
                         </td>
-                        <td style={{ padding: '12px 8px', fontSize: '0.85rem', textAlign: 'center' }}>
+                        <td style={{ padding: '7px 10px', fontSize: '0.85rem', textAlign: 'center' }}>
                           <span style={{ 
                             fontWeight: '700', 
                             color: requiresFemales ? 'var(--color-warning)' : 'var(--color-success)',
-                            background: requiresFemales ? 'rgba(245, 158, 11, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                            background: requiresFemales ? 'rgba(245, 158, 11, 0.08)' : 'rgba(16, 185, 129, 0.08)',
                             padding: '2px 8px',
-                            borderRadius: '4px',
-                            border: requiresFemales ? '1px solid rgba(245, 158, 11, 0.2)' : '1px solid rgba(16, 185, 129, 0.2)'
+                            borderRadius: '12px',
+                            border: requiresFemales ? '1px solid rgba(245, 158, 11, 0.2)' : '1px solid rgba(16, 185, 129, 0.2)',
+                            fontSize: '0.8rem'
                           }}>
                             {femaleCount}
                           </span>
                         </td>
-                        <td style={{ padding: '12px 8px', fontSize: '0.85rem', textAlign: 'center' }}>
+                        <td style={{ padding: '7px 10px', fontSize: '0.85rem', textAlign: 'center' }}>
                           <span style={{ 
                             fontWeight: '700', 
                             color: requiresBeginners ? 'var(--color-warning)' : 'var(--color-success)',
-                            background: requiresBeginners ? 'rgba(245, 158, 11, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                            background: requiresBeginners ? 'rgba(245, 158, 11, 0.08)' : 'rgba(16, 185, 129, 0.08)',
                             padding: '2px 8px',
-                            borderRadius: '4px',
-                            border: requiresBeginners ? '1px solid rgba(245, 158, 11, 0.2)' : '1px solid rgba(16, 185, 129, 0.2)'
+                            borderRadius: '12px',
+                            border: requiresBeginners ? '1px solid rgba(245, 158, 11, 0.2)' : '1px solid rgba(16, 185, 129, 0.2)',
+                            fontSize: '0.8rem'
                           }}>
                             {beginnerCount}
                           </span>
                         </td>
-                        <td style={{ padding: '12px 8px', fontSize: '0.85rem', textAlign: 'center', fontWeight: '600' }}>
+                        <td style={{ padding: '7px 10px', fontSize: '0.85rem', textAlign: 'center', fontWeight: '600' }}>
                           <span style={{ color: totalCount === maxPlayers ? 'var(--color-success)' : 'white' }}>
                             {totalCount}/{maxPlayers}
                           </span>
@@ -572,7 +574,7 @@ const AuctionPage = () => {
       {/* Select Team Modal */}
       {showTeamModal && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '600px' }}>
+          <div className="modal-content" style={{ maxWidth: '1100px', width: '95%', display: 'flex', flexDirection: 'column' }}>
             <div className="modal-header">
               <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Check size={20} style={{ color: 'var(--color-success)' }} />
@@ -585,7 +587,7 @@ const AuctionPage = () => {
               Final Price: <strong style={{ color: 'var(--color-primary)' }}>{currentBid.toLocaleString()} pts</strong>
             </p>
 
-            <div className="hide-scrollbar" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '12px', maxHeight: '60vh', overflowY: 'auto', paddingRight: '4px' }}>
+            <div className="hide-scrollbar" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '12px', maxHeight: '75vh', overflowY: 'auto', paddingRight: '4px' }}>
               {cityTeams.map((t) => {
                 const canAfford = t.purseRemaining >= currentBid;
                 const hasSpace = t.totalPlayers < businessRules.teamSizeLimit;
