@@ -86,4 +86,25 @@ public interface PlayerRepository extends JpaRepository<Player, Long> {
     int bulkResetPassedBySkillAndGender(@Param("city") String city,
                                         @Param("skillLevel") Player.SkillLevel skillLevel,
                                         @Param("gender") Player.Gender gender);
+
+    @Query("""
+        SELECT 
+            p.id, 
+            p.wissenId, 
+            p.fullName, 
+            p.email, 
+            p.gender, 
+            p.location, 
+            p.skillLevel, 
+            p.yearsOfExperience, 
+            p.mobileNumber, 
+            p.basePrice, 
+            p.status, 
+            p.soldPrice, 
+            p.soldTeam.id 
+        FROM Player p 
+        WHERE LOWER(p.location) = LOWER(:city) 
+          AND p.status = 'SOLD'
+        """)
+    List<Object[]> findSoldPlayersProjectionByLocation(@Param("city") String city);
 }

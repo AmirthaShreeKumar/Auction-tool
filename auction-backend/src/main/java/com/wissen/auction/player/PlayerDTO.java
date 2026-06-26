@@ -84,4 +84,26 @@ public class PlayerDTO {
         dto.setImageUrl(null);
         return dto;
     }
+
+    /**
+     * Extremely slim version for mapping players inside a TeamDTO.
+     * Excludes imageUrl, stats, and soldTeam to avoid N+1 database queries.
+     */
+    public static PlayerDTO fromSlimForTeam(Player p) {
+        return PlayerDTO.builder()
+                .id(p.getId())
+                .wissenId(p.getWissenId())
+                .fullName(p.getFullName())
+                .email(p.getEmail())
+                .gender(p.getGender() != null ? p.getGender().name() : null)
+                .location(p.getLocation())
+                .skillLevel(p.getSkillLevel() != null ? p.getSkillLevel().name() : null)
+                .yearsOfExperience(p.getYearsOfExperience())
+                .mobileNumber(p.getMobileNumber())
+                .imageUrl(null)
+                .basePrice(p.getBasePrice())
+                .status(p.getStatus() != null ? p.getStatus().name() : "UNSOLD")
+                .soldPrice(p.getSoldPrice())
+                .build();
+    }
 }

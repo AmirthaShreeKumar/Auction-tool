@@ -54,9 +54,7 @@ public class AuctionService {
 
         PlayerDTO activePlayer = queueDTOs.isEmpty() ? null : queueDTOs.get(0);
 
-        // Use fetch join to avoid N+1 queries when TeamDTO.from() accesses each team's players
-        List<com.wissen.auction.team.Team> teams = teamRepository.findByLocationWithPlayers(city);
-        List<TeamDTO> teamDTOs = teams.stream().map(TeamDTO::from).collect(Collectors.toList());
+        List<TeamDTO> teamDTOs = teamService.getTeamsByCity(city);
 
         return AuctionStateDTO.builder()
                 .activePlayer(activePlayer)

@@ -29,9 +29,12 @@ public class TeamDTO {
 
     public static TeamDTO from(Team t) {
         List<PlayerDTO> playerDTOs = t.getPlayers() != null
-                ? t.getPlayers().stream().map(PlayerDTO::fromSlim).collect(Collectors.toList())
+                ? t.getPlayers().stream().map(PlayerDTO::fromSlimForTeam).collect(Collectors.toList())
                 : List.of();
+        return from(t, playerDTOs);
+    }
 
+    public static TeamDTO from(Team t, List<PlayerDTO> playerDTOs) {
         int dynamicTotal = playerDTOs.size();
         int dynamicFemale = (int) playerDTOs.stream().filter(p -> "Female".equalsIgnoreCase(p.getGender())).count();
         int dynamicBeginner = (int) playerDTOs.stream().filter(p -> "Beginner".equalsIgnoreCase(p.getSkillLevel())).count();

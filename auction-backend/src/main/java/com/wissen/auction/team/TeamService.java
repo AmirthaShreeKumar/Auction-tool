@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.wissen.auction.auction.BidLogRepository;
 import com.wissen.auction.player.Player;
+import com.wissen.auction.player.PlayerDTO;
 import com.wissen.auction.player.PlayerRepository;
 
 import java.util.List;
@@ -30,9 +31,35 @@ public class TeamService {
 
     @Transactional(readOnly = true)
     public List<TeamDTO> getTeamsByCity(String city) {
-        return teamRepository.findByLocationWithPlayers(city)
-                .stream()
-                .map(TeamDTO::from)
+        List<Team> teams = teamRepository.findByLocationIgnoreCase(city);
+        List<Object[]> rows = playerRepository.findSoldPlayersProjectionByLocation(city);
+
+        java.util.Map<Long, List<PlayerDTO>> playersByTeamId = new java.util.HashMap<>();
+        for (Object[] row : rows) {
+            PlayerDTO dto = PlayerDTO.builder()
+                    .id((Long) row[0])
+                    .wissenId((String) row[1])
+                    .fullName((String) row[2])
+                    .email((String) row[3])
+                    .gender(row[4] != null ? ((com.wissen.auction.player.Player.Gender) row[4]).name() : null)
+                    .location((String) row[5])
+                    .skillLevel(row[6] != null ? ((com.wissen.auction.player.Player.SkillLevel) row[6]).name() : null)
+                    .yearsOfExperience((String) row[7])
+                    .mobileNumber((String) row[8])
+                    .basePrice((Integer) row[9])
+                    .status(row[10] != null ? ((com.wissen.auction.player.Player.PlayerStatus) row[10]).name() : "UNSOLD")
+                    .soldPrice((Integer) row[11])
+                    .soldTeamId((Long) row[12])
+                    .build();
+
+            playersByTeamId.computeIfAbsent(dto.getSoldTeamId(), k -> new java.util.ArrayList<>()).add(dto);
+        }
+
+        return teams.stream()
+                .map(t -> {
+                    List<PlayerDTO> teamPlayers = playersByTeamId.getOrDefault(t.getId(), List.of());
+                    return TeamDTO.from(t, teamPlayers);
+                })
                 .collect(Collectors.toList());
     }
 
