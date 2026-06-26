@@ -1,33 +1,9 @@
 import React, { useContext, useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { AppContext } from '../context/AppContext';
+import PlayerPhoto from '../components/PlayerPhoto';
 import { Plus, UserPlus, Filter, X, Search, Upload, Camera, Trash2, Pencil } from 'lucide-react';
 
-const PlayerAvatar = ({ imageUrl, fullName }) => {
-  const [imgError, setImgError] = useState(false);
-
-  useEffect(() => {
-    setImgError(false);
-  }, [imageUrl]);
-
-  if (imageUrl && !imgError) {
-    return (
-      <img 
-        src={imageUrl} 
-        alt={fullName} 
-        onError={() => setImgError(true)} 
-        style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-      />
-    );
-  }
-
-  return (
-    <svg viewBox="0 0 100 100" style={{ width: '100%', height: '100%', background: '#1e293b' }}>
-      <circle cx="50" cy="35" r="20" fill="#94a3b8" />
-      <path d="M15 85 C 15 65, 30 55, 50 55 C 70 55, 85 65, 85 85 Z" fill="#64748b" />
-    </svg>
-  );
-};
 
 // Helper function to compress images locally in the browser before upload
 const compressImage = (file, maxWidth = 1024, maxHeight = 1024, quality = 0.8) => {
@@ -620,7 +596,7 @@ const PlayersPage = () => {
                     border: '1px solid var(--border-color)',
                     flexShrink: 0
                   }}>
-                    <PlayerAvatar imageUrl={player.imageUrl} fullName={player.fullName} />
+                    <PlayerPhoto playerId={player.id} playerName={player.fullName} imageUrl={player.imageUrl} size="60px" borderRadius="12px" />
                   </div>
                   
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
@@ -1001,7 +977,7 @@ const PlayersPage = () => {
                 )}
 
                 {/* Current image indicator when editing */}
-                {editingPlayer && editingPlayer.imageUrl && !photoFile && (
+                {editingPlayer && editingPlayer.id && !photoFile && (
                   <div style={{ 
                     display: 'flex', 
                     alignItems: 'center', 
@@ -1013,11 +989,12 @@ const PlayersPage = () => {
                     fontSize: '0.75rem',
                     color: 'var(--color-text-muted)'
                   }}>
-                    <img
-                      src={editingPlayer.imageUrl}
-                      alt="Current"
-                      style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }}
-                      onError={(e) => { e.target.style.display = 'none'; }}
+                    <PlayerPhoto
+                      playerId={editingPlayer.id}
+                      playerName={editingPlayer.fullName}
+                      imageUrl={editingPlayer.imageUrl}
+                      size="28px"
+                      borderRadius="50%"
                     />
                     Current photo set · upload new to replace
                   </div>
@@ -1139,23 +1116,14 @@ const PlayersPage = () => {
             </div>
             
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
-              <div style={{ 
-                width: '100px', 
-                height: '100px', 
-                borderRadius: '50%', 
-                overflow: 'hidden', 
-                background: 'var(--bg-color)',
-                border: '2px solid var(--color-primary)'
-              }}>
-                {selectedPlayer.imageUrl && !modalImgError ? (
-                  <img src={selectedPlayer.imageUrl} alt={selectedPlayer.fullName} onError={() => setModalImgError(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : (
-                  <svg viewBox="0 0 100 100" style={{ width: '100%', height: '100%', background: '#1e293b' }}>
-                    <circle cx="50" cy="35" r="20" fill="#94a3b8" />
-                    <path d="M15 85 C 15 65, 30 55, 50 55 C 70 55, 85 65, 85 85 Z" fill="#64748b" />
-                  </svg>
-                )}
-              </div>
+              <PlayerPhoto
+                playerId={selectedPlayer.id}
+                playerName={selectedPlayer.fullName}
+                imageUrl={selectedPlayer.imageUrl}
+                size="100px"
+                borderRadius="50%"
+                style={{ border: '2px solid var(--color-primary)' }}
+              />
               
               <div>
                 <h4 style={{ fontSize: '1.4rem', color: 'white', margin: '0 0 4px 0' }}>{selectedPlayer.fullName}</h4>

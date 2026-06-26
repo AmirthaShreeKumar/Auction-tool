@@ -33,73 +33,10 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        // Run safe one-off migration to alter years_of_experience column to
-        // VARCHAR(255) if it is still integer
-        try (java.sql.Connection conn = dataSource.getConnection();
-                java.sql.Statement stmt = conn.createStatement()) {
-            stmt.execute("ALTER TABLE players ALTER COLUMN years_of_experience TYPE VARCHAR(255)");
-            log.info("Successfully altered players.years_of_experience column to VARCHAR(255)");
-
-            // Drop global unique constraint and global unique index on wissen_id if present
-            stmt.execute("""
-                DO $$
-                DECLARE
-                    constraint_name_var text;
-                    index_name_var text;
-                BEGIN
-                    -- 1. Try to find and drop constraint
-                    SELECT conname INTO constraint_name_var
-                    FROM pg_constraint con
-                    JOIN pg_class rel ON rel.oid = con.conrelid
-                    JOIN pg_attribute att ON att.attrelid = rel.oid AND att.attnum = ANY(con.conkey)
-                    WHERE rel.relname = 'players' 
-                      AND con.contype = 'u' 
-                      AND att.attname = 'wissen_id'
-                      AND array_length(con.conkey, 1) = 1;
-                
-                    IF constraint_name_var IS NOT NULL THEN
-                        EXECUTE 'ALTER TABLE players DROP CONSTRAINT ' || constraint_name_var || ' CASCADE';
-                    END IF;
-
-                    -- 2. Try to find and drop index
-                    SELECT c.relname INTO index_name_var
-                    FROM pg_index i
-                    JOIN pg_class c ON c.oid = i.indexrelid
-                    JOIN pg_class t ON t.oid = i.indrelid
-                    JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(i.indkey)
-                    WHERE t.relname = 'players'
-                      AND i.indisunique = true
-                      AND a.attname = 'wissen_id'
-                      AND i.indnatts = 1;
-
-                    IF index_name_var IS NOT NULL THEN
-                        EXECUTE 'DROP INDEX ' || index_name_var || ' CASCADE';
-                    END IF;
-                END $$;
-                """);
-            log.info("Successfully checked and dropped global unique constraint/index on players.wissen_id");
-
-            // Add composite unique constraint on (wissen_id, location) if not present
-            stmt.execute("""
-                DO $$
-                BEGIN
-                    IF NOT EXISTS (
-                        SELECT 1 FROM pg_constraint WHERE conname = 'uk_players_wissen_id_location'
-                    ) THEN
-                        ALTER TABLE players ADD CONSTRAINT uk_players_wissen_id_location UNIQUE (wissen_id, location);
-                    END IF;
-                END $$;
-                """);
-            log.info("Successfully checked and added composite unique constraint uk_players_wissen_id_location");
-        } catch (Exception e) {
-            log.warn("Error running schema migrations: {}", e.getMessage());
-        }
-
-        // NOTE: logo_url, logo_svg, image_url columns were previously altered to TEXT
-        // via
-        // DDL in this method. That migration has been applied to the database already.
-        // Do NOT add ALTER TABLE calls here — they lock the table on every startup.
-        // Use Flyway or a one-off SQL migration for any future schema changes.
+        // NOTE: All one-time schema migrations (ALTER TABLE, constraint drops/adds, etc.)
+        // have already been applied to the database and are intentionally removed here.
+        // Running DDL on every startup locks tables and times out on Supabase.
+        // Use Flyway or a one-off SQL script for any future schema changes.
 
         if (userRepository.count() == 0) {
             seedUsers();
@@ -110,7 +47,89 @@ public class DataInitializer implements CommandLineRunner {
         if (playerRepository.count() == 0) {
             seedPlayers();
         }
+
+        // Run player photo optimization in a background thread.
+        // Delayed by 60s so the connection pool is free for normal API requests first.
+        // Disabled: all existing photos have been optimized, and new photos are resized during upload/import.
+        // This avoids background query loop locks and connection pool starvation with PgBouncer.
+        /*
+        new Thread(() -> {
+            try {
+                Thread.sleep(60_000);
+                optimizeExistingPlayerPhotos();
+            } catch (Exception e) {
+                log.warn("Failed to run existing player photos optimization: {}", e.getMessage());
+            }
+        }).start();
+        */
+
         log.info("DataInitializer complete.");
+    }
+
+    private void optimizeExistingPlayerPhotos() {
+        log.info("Checking for unoptimized player photos in database (in background)...");
+        // Fetch only IDs of players that have base64 image data — avoids loading all photo bytes at once.
+        // Process one player at a time to stay within the small Supabase connection pool (size=3).
+        java.util.List<Long> playerIds;
+        try (java.sql.Connection conn = dataSource.getConnection();
+             java.sql.PreparedStatement ps = conn.prepareStatement(
+                     "SELECT id FROM players WHERE image_url LIKE 'data:image%'")) {
+            java.sql.ResultSet rs = ps.executeQuery();
+            playerIds = new java.util.ArrayList<>();
+            while (rs.next()) {
+                playerIds.add(rs.getLong(1));
+            }
+        } catch (Exception e) {
+            log.warn("Could not query player IDs for photo optimization: {}", e.getMessage());
+            return;
+        }
+
+        if (playerIds.isEmpty()) {
+            log.info("No player photos require optimization.");
+            return;
+        }
+
+        int count = 0;
+        for (Long id : playerIds) {
+            try {
+                Player player = playerRepository.findById(id).orElse(null);
+                if (player == null || player.getImageUrl() == null) continue;
+                String currentUrl = player.getImageUrl();
+                int commaIdx = currentUrl.indexOf(",");
+                if (commaIdx == -1) continue;
+
+                String header = currentUrl.substring(0, commaIdx);
+                String base64Data = currentUrl.substring(commaIdx + 1);
+                byte[] imageBytes = java.util.Base64.getDecoder().decode(base64Data);
+
+                // Check dimensions – skip if already <= 200x200
+                java.io.ByteArrayInputStream bais = new java.io.ByteArrayInputStream(imageBytes);
+                java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(bais);
+                if (img != null && img.getWidth() <= 200 && img.getHeight() <= 200) {
+                    continue;
+                }
+
+                String contentType = header.contains("png") ? "image/png"
+                        : header.contains("gif") ? "image/gif" : "image/jpeg";
+
+                byte[] resizedBytes = com.wissen.auction.player.PlayerService.resizeImage(imageBytes, contentType);
+                String newBase64 = java.util.Base64.getEncoder().encodeToString(resizedBytes);
+                player.setImageUrl(header + "," + newBase64);
+                playerRepository.save(player);
+                count++;
+
+                // Small pause so we don't monopolize the DB connection pool
+                Thread.sleep(200);
+            } catch (Exception e) {
+                log.warn("Failed to optimize photo for player id {}: {}", id, e.getMessage());
+            }
+        }
+
+        if (count > 0) {
+            log.info("Successfully optimized {} player photos in the database.", count);
+        } else {
+            log.info("No player photos required optimization.");
+        }
     }
 
     // ---- Users ----

@@ -13,6 +13,7 @@ import java.util.Base64;
 import java.util.Set;
 
 import com.wissen.auction.auction.BidLogRepository;
+import com.wissen.auction.team.TeamRepository;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -35,6 +36,7 @@ public class PlayerService {
 
     private final PlayerRepository playerRepository;
     private final BidLogRepository bidLogRepository;
+    private final TeamRepository teamRepository;
 
     // ---- READ ----
 
@@ -42,7 +44,7 @@ public class PlayerService {
     public List<PlayerDTO> getPlayersByCity(String city) {
         return playerRepository.findByLocationIgnoreCase(city)
                 .stream()
-                .map(PlayerDTO::from)
+                .map(PlayerDTO::fromSlim)   // excludes imageUrl — keeps response small
                 .collect(Collectors.toList());
     }
 
@@ -88,6 +90,7 @@ public class PlayerService {
                     .matchesPlayed(req.getMatchesPlayed())
                     .matchesWon(req.getMatchesWon())
                     .matchesLost(req.getMatchesLost())
+                    .player(player)
                     .build();
             player.setStats(stats);
         }
@@ -126,7 +129,7 @@ public class PlayerService {
 
         if (req.getMatchesPlayed() != null || req.getMatchesWon() != null || req.getMatchesLost() != null) {
             if (player.getStats() == null) {
-                PlayerStats stats = PlayerStats.builder().wissenId(req.getWissenId()).build();
+                PlayerStats stats = PlayerStats.builder().wissenId(req.getWissenId()).player(player).build();
                 player.setStats(stats);
             } else {
                 player.getStats().setWissenId(req.getWissenId());
@@ -177,6 +180,11 @@ public class PlayerService {
 
         // Convert to Base64 data URI
         byte[] bytes = photo.getBytes();
+        try {
+            bytes = resizeImage(bytes, contentType);
+        } catch (Exception e) {
+            log.warn("Failed to resize photo: {}", e.getMessage());
+        }
         String base64 = Base64.getEncoder().encodeToString(bytes);
         String dataUri = "data:" + contentType + ";base64," + base64;
 
@@ -193,6 +201,17 @@ public class PlayerService {
             throw new SecurityException("Cannot delete players from another city.");
         }
         bidLogRepository.deleteByPlayer(player);
+        
+        // If the player was sold to a team, sync that team's purse remaining
+        com.wissen.auction.team.Team team = player.getSoldTeam();
+        if (team != null) {
+            org.hibernate.Hibernate.initialize(team.getPlayers());
+            if (team.getPlayers() != null) {
+                team.getPlayers().removeIf(p -> p.getId().equals(player.getId()));
+            }
+            teamRepository.save(team);
+        }
+        
         playerRepository.delete(player);
     }
 
@@ -452,6 +471,17 @@ public class PlayerService {
         if (players.isEmpty())
             return 0;
         bidLogRepository.deleteByPlayerIn(players);
+        
+        // Also update all teams in this city to clear their purseRemaining and player list
+        List<com.wissen.auction.team.Team> teams = teamRepository.findByLocationWithPlayers(city);
+        for (com.wissen.auction.team.Team team : teams) {
+            if (team.getPlayers() != null) {
+                team.getPlayers().clear();
+            }
+            team.setPurseRemaining(100000);
+            teamRepository.save(team);
+        }
+        
         playerRepository.deleteAll(players);
         return players.size();
     }
@@ -461,7 +491,7 @@ public class PlayerService {
     @Transactional
     public Player markPlayerPassed(Long playerId) {
         Player player = findOrThrow(playerId);
-        player.setStatus(Player.PlayerStatus.UNSOLD);
+        player.setStatus(Player.PlayerStatus.PASSED);
         return playerRepository.save(player);
     }
 
@@ -592,5 +622,77 @@ public class PlayerService {
         if (header == null)
             return "";
         return header.replaceAll("[^a-zA-Z0-9]", "").toLowerCase();
+    }
+
+    public static byte[] resizeImage(byte[] originalImageBytes, String contentType) {
+        try {
+            java.io.ByteArrayInputStream bais = new java.io.ByteArrayInputStream(originalImageBytes);
+            java.awt.image.BufferedImage originalImage = javax.imageio.ImageIO.read(bais);
+            if (originalImage == null) {
+                return originalImageBytes;
+            }
+
+            int targetWidth = 600;
+            int targetHeight = 600;
+            int originalWidth = originalImage.getWidth();
+            int originalHeight = originalImage.getHeight();
+
+            if (originalWidth > targetWidth || originalHeight > targetHeight) {
+                if (originalWidth > originalHeight) {
+                    targetHeight = (int) (originalHeight * (600.0 / originalWidth));
+                } else {
+                    targetWidth = (int) (originalWidth * (600.0 / originalHeight));
+                }
+            } else {
+                return originalImageBytes; // No need to resize if already small
+            }
+
+            int imageType = java.awt.image.BufferedImage.TYPE_INT_RGB;
+            String formatName = "jpeg";
+            if (contentType != null && contentType.toLowerCase().contains("png")) {
+                imageType = java.awt.image.BufferedImage.TYPE_INT_ARGB;
+                formatName = "png";
+            } else if (contentType != null && contentType.toLowerCase().contains("gif")) {
+                imageType = java.awt.image.BufferedImage.TYPE_INT_ARGB;
+                formatName = "gif";
+            }
+
+            java.awt.image.BufferedImage resizedImage = new java.awt.image.BufferedImage(targetWidth, targetHeight, imageType);
+            java.awt.Graphics2D g2d = resizedImage.createGraphics();
+
+            if (imageType == java.awt.image.BufferedImage.TYPE_INT_RGB) {
+                g2d.setColor(java.awt.Color.WHITE);
+                g2d.fillRect(0, 0, targetWidth, targetHeight);
+            }
+
+            g2d.drawImage(originalImage.getScaledInstance(targetWidth, targetHeight, java.awt.Image.SCALE_SMOOTH), 0, 0, null);
+            g2d.dispose();
+
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            if (formatName.equals("jpeg")) {
+                java.util.Iterator<javax.imageio.ImageWriter> writers = javax.imageio.ImageIO.getImageWritersByFormatName("jpeg");
+                if (writers.hasNext()) {
+                    javax.imageio.ImageWriter writer = writers.next();
+                    javax.imageio.ImageWriteParam param = writer.getDefaultWriteParam();
+                    if (param.canWriteCompressed()) {
+                        param.setCompressionMode(javax.imageio.ImageWriteParam.MODE_EXPLICIT);
+                        param.setCompressionQuality(0.95f); // 95% high quality to prevent any compression dullness
+                    }
+                    try (javax.imageio.stream.ImageOutputStream ios = javax.imageio.ImageIO.createImageOutputStream(baos)) {
+                        writer.setOutput(ios);
+                        writer.write(null, new javax.imageio.IIOImage(resizedImage, null, null), param);
+                    } finally {
+                        writer.dispose();
+                    }
+                } else {
+                    javax.imageio.ImageIO.write(resizedImage, formatName, baos);
+                }
+            } else {
+                javax.imageio.ImageIO.write(resizedImage, formatName, baos);
+            }
+            return baos.toByteArray();
+        } catch (Exception e) {
+            return originalImageBytes;
+        }
     }
 }

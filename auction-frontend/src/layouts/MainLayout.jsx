@@ -28,10 +28,10 @@ const MainLayout = () => {
 
   // Sync route parameters with AppContext
   useEffect(() => {
-    if (urlCity && urlCity !== city) {
+    if (urlCity && urlCity.toLowerCase() !== city.toLowerCase()) {
       selectCity(urlCity);
     }
-    if (urlRole && urlRole !== role) {
+    if (urlRole && urlRole.toLowerCase() !== role.toLowerCase()) {
       selectRole(urlRole);
     }
   }, [urlCity, urlRole, city, role, selectCity, selectRole]);

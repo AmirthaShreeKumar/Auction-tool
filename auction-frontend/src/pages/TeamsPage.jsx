@@ -5,27 +5,8 @@ import { Trophy, Plus, ShieldAlert, CheckCircle2, AlertTriangle, Eye, X, Trash2,
 import html2canvas from 'html2canvas';
 import TeamCardExport from '../components/TeamCardExport';
 import TeamLogo from '../components/TeamLogo';
-const PlayerAvatar = ({ imageUrl, fullName }) => {
-  const [imgError, setImgError] = useState(false);
+import PlayerPhoto from '../components/PlayerPhoto';
 
-  if (imageUrl && !imgError) {
-    return (
-      <img 
-        src={imageUrl} 
-        alt={fullName} 
-        onError={() => setImgError(true)} 
-        style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-      />
-    );
-  }
-
-  return (
-    <svg viewBox="0 0 100 100" style={{ width: '100%', height: '100%', background: '#1e293b' }}>
-      <circle cx="50" cy="35" r="20" fill="#94a3b8" />
-      <path d="M15 85 C 15 65, 30 55, 50 55 C 70 55, 85 65, 85 85 Z" fill="#64748b" />
-    </svg>
-  );
-};
 
 const TeamsPage = () => {
   const { city, role } = useParams();
@@ -535,7 +516,7 @@ const TeamsPage = () => {
                           overflow: 'hidden',
                           flexShrink: 0
                         }}>
-                          <PlayerAvatar imageUrl={p.imageUrl} fullName={p.fullName} />
+                          <PlayerPhoto playerId={p.id} playerName={p.fullName} size="36px" borderRadius="8px" />
                         </div>
 
                         <div style={{ flex: 1, minWidth: 0 }}>

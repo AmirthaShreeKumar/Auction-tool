@@ -30,10 +30,15 @@ export const AppProvider = ({ children }) => {
 
   // Auction Filters — reset auction index when filters change so we start
   // at the beginning of the newly-filtered queue.
-  const [auctionSkillFilter, _setAuctionSkillFilter] = useState('All');
-  const [auctionGenderFilter, _setAuctionGenderFilter] = useState('All');
+  const [auctionSkillFilter, _setAuctionSkillFilter] = useState(() => localStorage.getItem('wbp_auctionSkillFilter') || 'All');
+  const [auctionGenderFilter, _setAuctionGenderFilter] = useState(() => localStorage.getItem('wbp_auctionGenderFilter') || 'All');
   const setAuctionSkillFilter = (val) => { _setAuctionSkillFilter(val); setCurrentAuctionIndex(0); };
   const setAuctionGenderFilter = (val) => { _setAuctionGenderFilter(val); setCurrentAuctionIndex(0); };
+
+  // Lot Selection states (shared to persist across pages)
+  const [isLotSelected, setIsLotSelected] = useState(() => localStorage.getItem('wbp_isLotSelected') === 'true');
+  const [selectedGender, setSelectedGender] = useState(() => localStorage.getItem('wbp_selectedGender') || 'Female');
+  const [selectedSkill, setSelectedSkill] = useState(() => localStorage.getItem('wbp_selectedSkill') || 'Beginner');
 
   // Loading / error
   const [loading, setLoading] = useState(false);
@@ -42,37 +47,58 @@ export const AppProvider = ({ children }) => {
   useEffect(() => { localStorage.setItem('wbp_city', city); }, [city]);
   useEffect(() => { localStorage.setItem('wbp_role', role); }, [role]);
 
-  // ---- Fetch data when city is set ----
+  // ---- Persist lot configuration and filters to localStorage ----
+  useEffect(() => { localStorage.setItem('wbp_auctionSkillFilter', auctionSkillFilter); }, [auctionSkillFilter]);
+  useEffect(() => { localStorage.setItem('wbp_auctionGenderFilter', auctionGenderFilter); }, [auctionGenderFilter]);
+  useEffect(() => { localStorage.setItem('wbp_isLotSelected', isLotSelected); }, [isLotSelected]);
+  useEffect(() => { localStorage.setItem('wbp_selectedGender', selectedGender); }, [selectedGender]);
+  useEffect(() => { localStorage.setItem('wbp_selectedSkill', selectedSkill); }, [selectedSkill]);
+
+  // ---- Fetch helpers (city passed explicitly to avoid stale closure issues) ----
+  const fetchPlayersForCity = useCallback(async (targetCity) => {
+    if (!targetCity) return [];
+    try {
+      const data = await apiFetch(`/api/${targetCity}/players`);
+      return Array.isArray(data) ? data : [];
+    } catch (err) {
+      console.error('Failed to load players:', err.message);
+      return [];
+    }
+  }, []);
+
+  const fetchTeamsForCity = useCallback(async (targetCity) => {
+    if (!targetCity) return [];
+    try {
+      const data = await apiFetch(`/api/${targetCity}/teams`);
+      return Array.isArray(data) ? data : [];
+    } catch (err) {
+      console.error('Failed to load teams:', err.message);
+      return [];
+    }
+  }, []);
+
   const refreshPlayers = useCallback(async () => {
     if (!city) return;
-    try {
-      const data = await apiFetch(`/api/${city}/players`);
-      setPlayers(Array.isArray(data) ? data : []);
-    } catch (err) {
-      // Silently ignore if city is not yet set (guest entering before auth)
-    }
-  }, [city]);
+    const data = await fetchPlayersForCity(city);
+    setPlayers(data);
+  }, [city, fetchPlayersForCity]);
 
   const refreshTeams = useCallback(async () => {
     if (!city) return;
-    try {
-      const data = await apiFetch(`/api/${city}/teams`);
-      setTeams(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error('Failed to load teams:', err.message);
-    }
-  }, [city]);
+    const data = await fetchTeamsForCity(city);
+    setTeams(data);
+  }, [city, fetchTeamsForCity]);
 
+  // Fetch data when city or role changes (e.g. after login or page refresh)
   useEffect(() => {
     if (city && (role === 'admin' || role === 'guest')) {
-      refreshPlayers();
-      refreshTeams();
+      fetchPlayersForCity(city).then(setPlayers);
+      fetchTeamsForCity(city).then(setTeams);
     }
-  }, [city, role, refreshPlayers, refreshTeams]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [city, role]);
 
   // ---- Auto-refresh for guest mode ----
-  // Jitter spreads concurrent guests across a 5s window so they don't all
-  // hit the backend at the same instant (thundering herd every 10s).
   useEffect(() => {
     if (role !== 'guest' || !city) return;
     const jitter = Math.random() * 5000;
@@ -84,21 +110,38 @@ export const AppProvider = ({ children }) => {
   }, [role, city, refreshPlayers, refreshTeams]);
 
   // ---- Auth actions ----
-  const selectCity = (selectedCity) => {
+  // selectCity is used by the guest flow — also fetches data immediately
+  const selectCity = useCallback(async (selectedCity, selectedRole) => {
     setCity(selectedCity);
     setCurrentAuctionIndex(0);
     setCurrentBid(0);
     setBidHistory([]);
     setHighestBidderTeam(null);
     setHighestBidderTeamId(null);
-  };
+    setIsLotSelected(false);
+    _setAuctionSkillFilter('All');
+    _setAuctionGenderFilter('All');
+    setSelectedGender('Female');
+    setSelectedSkill('Beginner');
 
-  const selectRole = (selectedRole) => {
+    // Fetch data immediately using the new city (state update is async so we pass it directly)
+    if (selectedCity && (selectedRole === 'guest' || selectedRole === 'admin')) {
+      const [p, t] = await Promise.all([
+        fetchPlayersForCity(selectedCity),
+        fetchTeamsForCity(selectedCity),
+      ]);
+      setPlayers(p);
+      setTeams(t);
+    }
+  }, [fetchPlayersForCity, fetchTeamsForCity]);
+
+  const selectRole = useCallback((selectedRole) => {
     setRole(selectedRole);
-  };
+  }, []);
 
   /**
    * Login via backend API. Stores JWT and user info.
+   * Data fetch is handled by the useEffect that watches city/role changes.
    */
   const login = async (usernameInput, password) => {
     // Backend sets the HttpOnly wbpl_jwt cookie; response body has role/city/username only
@@ -106,6 +149,7 @@ export const AppProvider = ({ children }) => {
       method: 'POST',
       body: JSON.stringify({ username: usernameInput, password }),
     });
+    // Setting city and role will trigger the useEffect to fetch players/teams
     setRole(resp.role);
     setCity(resp.city);
     setUsername(resp.username);
@@ -220,7 +264,7 @@ export const AppProvider = ({ children }) => {
       const releasedIds = new Set(team.players.map(p => p.id));
       setPlayers(prev => prev.map(p =>
         releasedIds.has(p.id)
-          ? { ...p, status: 'UNSOLD', soldPrice: null, soldTeamId: null, soldTeamName: null }
+          ? { ...p, status: 'UNSOLD', soldPrice: null, soldTeamId: null, soldTeam: null }
           : p
       ));
     }
@@ -249,7 +293,7 @@ export const AppProvider = ({ children }) => {
     // Optimistic update: mark the player as UNSOLD locally
     setPlayers(prev => prev.map(p =>
       Number(p.id) === Number(playerId)
-        ? { ...p, status: 'UNSOLD', soldPrice: null, soldTeamId: null, soldTeamName: null }
+        ? { ...p, status: 'UNSOLD', soldPrice: null, soldTeamId: null, soldTeam: null }
         : p
     ));
     return finalTeam;
@@ -257,6 +301,8 @@ export const AppProvider = ({ children }) => {
 
   // ---- Auction queue ----
   const getAuctionQueue = useCallback(() => {
+    console.log("[WBPL Debug] getAuctionQueue called. filters:", { auctionSkillFilter, auctionGenderFilter }, "city:", city);
+    console.log("[WBPL Debug] players list:", players.map(p => ({ name: p.fullName, status: p.status, skill: p.skillLevel, gender: p.gender })));
     let cityPlayers = players.filter(
       p => p.location?.toLowerCase() === city?.toLowerCase() && p.status === 'UNSOLD'
     );
@@ -354,10 +400,13 @@ export const AppProvider = ({ children }) => {
     const soldPrice = currentBid;
     const soldPlayer = activePlayer;
 
+    const targetTeam = teams.find(t => t.id === teamId);
+    const teamName = targetTeam ? targetTeam.teamName : null;
+
     // Optimistic update: mark player as SOLD locally
     setPlayers(prev => prev.map(p =>
       p.id === soldPlayerId
-        ? { ...p, status: 'SOLD', soldPrice: soldPrice, soldTeamId: teamId }
+        ? { ...p, status: 'SOLD', soldPrice: soldPrice, soldTeamId: teamId, soldTeam: teamName }
         : p
     ));
 
@@ -372,7 +421,7 @@ export const AppProvider = ({ children }) => {
         totalPlayers: (t.totalPlayers || 0) + 1,
         femalePlayers: (t.femalePlayers || 0) + (isFemale ? 1 : 0),
         beginnerPlayers: (t.beginnerPlayers || 0) + (isBeginner ? 1 : 0),
-        players: [...(t.players || []), { ...soldPlayer, status: 'SOLD', soldPrice: soldPrice }],
+        players: [...(t.players || []), { ...soldPlayer, status: 'SOLD', soldPrice: soldPrice, soldTeam: teamName, soldTeamId: teamId }],
       };
     }));
 
@@ -388,13 +437,17 @@ export const AppProvider = ({ children }) => {
         finalPrice: soldPrice,
       }),
     })
+      .then((updatedPlayer) => {
+        // Sync with fresh database state on success
+        setPlayers(prev => prev.map(p => p.id === soldPlayerId ? updatedPlayer : p));
+      })
       .catch((err) => {
         console.error('Sell failed, reverting optimistic state:', err.message);
         
         // Revert only the specific player status to UNSOLD
         setPlayers(prev => prev.map(p =>
           p.id === soldPlayerId
-            ? { ...p, status: 'UNSOLD', soldPrice: null, soldTeamId: null }
+            ? { ...p, status: 'UNSOLD', soldPrice: null, soldTeamId: null, soldTeam: null }
             : p
         ));
 
@@ -438,7 +491,7 @@ export const AppProvider = ({ children }) => {
       if (p.status !== 'PASSED') return p;
       if (auctionSkillFilter !== 'All' && p.skillLevel !== auctionSkillFilter) return p;
       if (auctionGenderFilter !== 'All' && p.gender !== auctionGenderFilter) return p;
-      return { ...p, status: 'UNSOLD', soldPrice: null, soldTeamId: null, soldTeamName: null };
+      return { ...p, status: 'UNSOLD', soldPrice: null, soldTeamId: null, soldTeam: null };
     }));
     setCurrentAuctionIndex(0);
 
@@ -477,6 +530,12 @@ export const AppProvider = ({ children }) => {
       setAuctionSkillFilter,
       auctionGenderFilter,
       setAuctionGenderFilter,
+      isLotSelected,
+      setIsLotSelected,
+      selectedGender,
+      setSelectedGender,
+      selectedSkill,
+      setSelectedSkill,
       // Player CRUD
       addPlayer, importPlayersFromExcel, updatePlayer, deletePlayer, clearAllPlayers, uploadPlayerPhoto,
       // Team CRUD

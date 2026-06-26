@@ -1,6 +1,7 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { AppContext } from '../context/AppContext';
+import PlayerPhoto from '../components/PlayerPhoto';
 import { 
   Gavel, 
   User, 
@@ -30,6 +31,12 @@ const AuctionPage = () => {
     setAuctionSkillFilter,
     auctionGenderFilter,
     setAuctionGenderFilter,
+    isLotSelected,
+    setIsLotSelected,
+    selectedGender,
+    setSelectedGender,
+    selectedSkill,
+    setSelectedSkill,
     increaseBid, 
     passPlayer, 
     markSold, 
@@ -47,10 +54,7 @@ const AuctionPage = () => {
   // Modal state for selecting team
   const [showTeamModal, setShowTeamModal] = useState(false);
 
-  // Lots selection states (Admin only)
-  const [isLotSelected, setIsLotSelected] = useState(false);
-  const [selectedGender, setSelectedGender] = useState('Female');
-  const [selectedSkill, setSelectedSkill] = useState('Beginner');
+  // Lots selection states are now persisted globally in AppContext
 
   // Helper to count remaining players for filter options
   const getFilteredCount = (skill, gender) => {
@@ -533,10 +537,7 @@ const AuctionPage = () => {
                   {activePlayer.imageUrl && !imgError ? (
                     <img src={activePlayer.imageUrl} alt={activePlayer.fullName} onError={() => setImgError(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
-                    <svg viewBox="0 0 100 100" style={{ width: '100%', height: '100%', background: '#1e293b' }}>
-                      <circle cx="50" cy="35" r="20" fill="#94a3b8" />
-                      <path d="M15 85 C 15 65, 30 55, 50 55 C 70 55, 85 65, 85 85 Z" fill="#64748b" />
-                    </svg>
+                    <PlayerPhoto playerId={activePlayer.id} playerName={activePlayer.fullName} size="180px" borderRadius="24px" style={{ border: 'none', background: 'transparent' }} />
                   )}
                 </div>
  

@@ -72,4 +72,29 @@ public class Team {
     @OneToMany(mappedBy = "soldTeam", fetch = FetchType.LAZY)
     @Builder.Default
     private List<Player> players = new ArrayList<>();
+
+    public Integer getPurseRemaining() {
+        if (this.players == null || !org.hibernate.Hibernate.isInitialized(this.players)) {
+            return this.purseRemaining;
+        }
+        try {
+            int spent = this.players.stream()
+                    .filter(p -> p.getStatus() == Player.PlayerStatus.SOLD)
+                    .mapToInt(p -> p.getSoldPrice() != null ? p.getSoldPrice() : 0)
+                    .sum();
+            return 100000 - spent;
+        } catch (Exception e) {
+            return this.purseRemaining;
+        }
+    }
+
+    public Integer getRawPurseRemaining() {
+        return this.purseRemaining;
+    }
+
+    @PrePersist
+    @PreUpdate
+    public void syncPurseRemaining() {
+        this.purseRemaining = getPurseRemaining();
+    }
 }

@@ -73,4 +73,15 @@ public class PlayerDTO {
                         .build() : null)
                 .build();
     }
+
+    /**
+     * Slim version for list endpoints — excludes the imageUrl (base64 photo).
+     * This keeps the bulk player list response small and fast.
+     * Photos are loaded on demand via GET /api/{city}/players/{id}.
+     */
+    public static PlayerDTO fromSlim(Player p) {
+        PlayerDTO dto = from(p);
+        dto.setImageUrl(null);
+        return dto;
+    }
 }

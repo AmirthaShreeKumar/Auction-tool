@@ -16,11 +16,11 @@ public class PlayerStats {
     private Long id;
 
     /** Wissen ID used to map stats to a player (business key) */
-    @Column(name = "wissen_id", unique = true)
+    @Column(name = "wissen_id")
     private String wissenId;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "wissen_id", referencedColumnName = "wissen_id", insertable = false, updatable = false)
+    @JoinColumn(name = "player_id", referencedColumnName = "id")
     private Player player;
 
     @Column(name = "matches_played")

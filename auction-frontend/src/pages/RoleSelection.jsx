@@ -6,13 +6,15 @@ import { ShieldCheck, UserCheck, ChevronLeft, MapPin } from 'lucide-react';
 const RoleSelection = () => {
   const navigate = useNavigate();
   const { city } = useParams();
-  const { selectRole } = useContext(AppContext);
+  const { selectRole, selectCity } = useContext(AppContext);
 
-  const handleRoleSelect = (role) => {
+  const handleRoleSelect = async (role) => {
     selectRole(role);
     if (role === 'admin') {
       navigate(`/login/${city}`);
     } else {
+      // Fetch data before navigating so dashboard loads with real data
+      await selectCity(city, role);
       navigate(`/dashboard/${city}/guest`);
     }
   };

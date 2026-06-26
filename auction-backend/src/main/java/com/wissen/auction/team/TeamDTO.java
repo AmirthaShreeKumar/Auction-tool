@@ -29,7 +29,7 @@ public class TeamDTO {
 
     public static TeamDTO from(Team t) {
         List<PlayerDTO> playerDTOs = t.getPlayers() != null
-                ? t.getPlayers().stream().map(PlayerDTO::from).collect(Collectors.toList())
+                ? t.getPlayers().stream().map(PlayerDTO::fromSlim).collect(Collectors.toList())
                 : List.of();
 
         int dynamicTotal = playerDTOs.size();

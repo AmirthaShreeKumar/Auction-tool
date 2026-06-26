@@ -50,9 +50,13 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // Public endpoints (login + logout — logout just clears the cookie, no auth needed)
                 .requestMatchers("/api/auth/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/*/players/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/*/players").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/*/players/**").permitAll()  // covers /{id}, /{id}/photo, /queue
+                .requestMatchers(HttpMethod.GET, "/api/*/teams").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/*/teams/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/*/auction").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/*/auction/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/*/statistics").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/*/statistics/**").permitAll()
                 // Admin-only write operations
                 .requestMatchers(HttpMethod.POST,   "/api/*/players/**").hasRole("ADMIN")

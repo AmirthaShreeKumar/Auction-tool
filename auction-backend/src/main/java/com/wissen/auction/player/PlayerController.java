@@ -34,11 +34,20 @@ public class PlayerController {
         return ResponseEntity.ok(playerService.getPlayersByCity(city));
     }
 
-    /** GET /api/{city}/players/{id} – single player */
+    /** GET /api/{city}/players/{id} – single player (full DTO including photo) */
     @GetMapping("/{id}")
     public ResponseEntity<PlayerDTO> getPlayer(@PathVariable String city,
                                                @PathVariable Long id) {
         return ResponseEntity.ok(playerService.getPlayerById(id));
+    }
+
+    /** GET /api/{city}/players/{id}/photo – returns just the imageUrl (for lazy loading) */
+    @GetMapping("/{id}/photo")
+    public ResponseEntity<java.util.Map<String, String>> getPlayerPhoto(@PathVariable String city,
+                                                                         @PathVariable Long id) {
+        PlayerDTO player = playerService.getPlayerById(id);
+        String imageUrl = player.getImageUrl();
+        return ResponseEntity.ok(java.util.Map.of("imageUrl", imageUrl != null ? imageUrl : ""));
     }
 
     /** GET /api/{city}/players/queue – ordered auction queue */
