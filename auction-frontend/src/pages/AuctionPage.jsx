@@ -2,15 +2,15 @@ import React, { useContext, useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { AppContext } from '../context/AppContext';
 import PlayerPhoto from '../components/PlayerPhoto';
-import { 
-  Gavel, 
-  User, 
-  ArrowRight, 
-  TrendingUp, 
-  Award, 
-  Check, 
-  XSquare, 
-  Users, 
+import {
+  Gavel,
+  User,
+  ArrowRight,
+  TrendingUp,
+  Award,
+  Check,
+  XSquare,
+  Users,
   Coins,
   PlayCircle,
   SkipForward,
@@ -19,13 +19,13 @@ import {
 
 const AuctionPage = () => {
   const { city, role } = useParams();
-  const { 
+  const {
     teams,
     players,
-    activePlayer, 
-    currentBid, 
-    highestBidderTeam, 
-    auctionQueue, 
+    activePlayer,
+    currentBid,
+    highestBidderTeam,
+    auctionQueue,
     currentAuctionIndex,
     auctionSkillFilter,
     setAuctionSkillFilter,
@@ -37,9 +37,9 @@ const AuctionPage = () => {
     setSelectedGender,
     selectedSkill,
     setSelectedSkill,
-    increaseBid, 
-    passPlayer, 
-    markSold, 
+    increaseBid,
+    passPlayer,
+    markSold,
     nextPlayer,
     revertLastBid,
     reAuction,
@@ -50,7 +50,7 @@ const AuctionPage = () => {
   const [animateBid, setAnimateBid] = useState(false);
   const [biddingError, setBiddingError] = useState('');
   const [toastMessage, setToastMessage] = useState(null);
-  
+
   // Modal state for selecting team
   const [showTeamModal, setShowTeamModal] = useState(false);
 
@@ -59,9 +59,9 @@ const AuctionPage = () => {
   // Helper to count remaining players for filter options
   const getFilteredCount = (skill, gender) => {
     if (!players) return 0;
-    return players.filter(p => 
-      p.location?.toLowerCase() === city?.toLowerCase() && 
-      p.status === 'UNSOLD' && 
+    return players.filter(p =>
+      p.location?.toLowerCase() === city?.toLowerCase() &&
+      p.status === 'UNSOLD' &&
       (skill === 'All' || p.skillLevel === skill) &&
       (gender === 'All' || p.gender === gender)
     ).length;
@@ -70,9 +70,9 @@ const AuctionPage = () => {
   // Helper to count skipped/passed players for filter options
   const getPassedCount = (skill, gender) => {
     if (!players) return 0;
-    return players.filter(p => 
-      p.location?.toLowerCase() === city?.toLowerCase() && 
-      p.status === 'PASSED' && 
+    return players.filter(p =>
+      p.location?.toLowerCase() === city?.toLowerCase() &&
+      p.status === 'PASSED' &&
       (skill === 'All' || p.skillLevel === skill) &&
       (gender === 'All' || p.gender === gender)
     ).length;
@@ -95,11 +95,11 @@ const AuctionPage = () => {
       const originalMaxWidth = mainContent.style.maxWidth;
       const originalWidth = mainContent.style.width;
       const originalPadding = mainContent.style.padding;
-      
+
       mainContent.style.maxWidth = '1800px';
       mainContent.style.width = '96%';
       mainContent.style.padding = '20px 24px';
-      
+
       return () => {
         mainContent.style.maxWidth = originalMaxWidth;
         mainContent.style.width = originalWidth;
@@ -124,8 +124,8 @@ const AuctionPage = () => {
   const cityTeams = teams.filter(t => t.location.toLowerCase() === city.toLowerCase());
 
   // Count of skipped/passed players for the current city matching the active filters
-  const passedCount = players ? players.filter(p => 
-    p.location?.toLowerCase() === city?.toLowerCase() && 
+  const passedCount = players ? players.filter(p =>
+    p.location?.toLowerCase() === city?.toLowerCase() &&
     p.status === 'PASSED' &&
     (auctionSkillFilter === 'All' || p.skillLevel === auctionSkillFilter) &&
     (auctionGenderFilter === 'All' || p.gender === auctionGenderFilter)
@@ -182,7 +182,7 @@ const AuctionPage = () => {
     const unsoldCount = getFilteredCount(selectedSkill, selectedGender);
     const passedCount = getPassedCount(selectedSkill, selectedGender);
     const totalMatchingCount = unsoldCount + passedCount;
-    
+
     return (
       <div>
         {/* Page Header */}
@@ -192,14 +192,14 @@ const AuctionPage = () => {
         </div>
 
         <div className="glass-panel" style={{ padding: '48px', maxWidth: '1600px', margin: '0 auto', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '40px' }}>
-          
+
           {/* Gender Choice Section */}
           <div>
             <h4 style={{ fontSize: '1.25rem', color: 'white', marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '10px' }}>
               <User size={22} style={{ color: 'var(--color-primary)' }} />
               1. Select Gender
             </h4>
-            
+
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '24px' }}>
               {[
                 { label: 'Female', value: 'Female' },
@@ -209,7 +209,7 @@ const AuctionPage = () => {
                 const isSelected = selectedGender === genderOpt.value;
                 const uCount = getFilteredCount('All', genderOpt.value);
                 const pCount = getPassedCount('All', genderOpt.value);
-                
+
                 let countText = '';
                 if (uCount > 0 && pCount > 0) {
                   countText = `${uCount} Unsold (${pCount} Passed)`;
@@ -289,7 +289,7 @@ const AuctionPage = () => {
               <Award size={22} style={{ color: 'var(--color-primary)' }} />
               2. Select Skill Level
             </h4>
-            
+
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
               {[
                 { label: 'Beginner', value: 'Beginner' },
@@ -300,7 +300,7 @@ const AuctionPage = () => {
                 const isSelected = selectedSkill === skillOpt.value;
                 const uCount = getFilteredCount(skillOpt.value, selectedGender);
                 const pCount = getPassedCount(skillOpt.value, selectedGender);
-                
+
                 let countText = '';
                 let isWarning = false;
                 if (uCount > 0 && pCount > 0) {
@@ -313,7 +313,7 @@ const AuctionPage = () => {
                   countText = `0 Players`;
                   isWarning = true;
                 }
-                
+
                 return (
                   <div
                     key={skillOpt.value}
@@ -362,16 +362,16 @@ const AuctionPage = () => {
                         <Check size={12} strokeWidth={3} fill="none" />
                       </div>
                     )}
-                    <span style={{ 
-                      fontSize: '1.15rem', 
-                      fontWeight: '700', 
+                    <span style={{
+                      fontSize: '1.15rem',
+                      fontWeight: '700',
                       color: isSelected ? 'var(--color-primary)' : 'white',
-                      textTransform: 'uppercase' 
+                      textTransform: 'uppercase'
                     }}>
                       {skillOpt.label}
                     </span>
-                    <span style={{ 
-                      fontSize: '0.9rem', 
+                    <span style={{
+                      fontSize: '0.9rem',
                       color: isWarning ? 'var(--color-danger)' : isSelected ? 'white' : 'var(--color-text-muted)',
                       fontWeight: isWarning ? '600' : 'normal'
                     }}>
@@ -391,7 +391,7 @@ const AuctionPage = () => {
               if (unsoldCount === 0 && passedCount > 0) {
                 buttonText = `Enter Lot for Re-Auction (${passedCount} Passed)`;
               }
-              
+
               return (
                 <>
                   <button
@@ -447,7 +447,7 @@ const AuctionPage = () => {
               <p className="page-subtitle">Interactive player draft system for {city.toUpperCase()} location.</p>
             </div>
           </div>
-          
+
           {/* Read-only Badges */}
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
             <span style={{
@@ -487,44 +487,45 @@ const AuctionPage = () => {
         </div>
       </div>
 
-      <div style={{ 
-        display: 'flex', 
-        flexDirection: 'row', 
-        flexWrap: 'wrap', 
-        gap: '24px', 
+      <div style={{
+        display: 'flex',
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: '24px',
         alignItems: 'flex-start',
         marginTop: '12px'
       }}>
-        
+
         {/* Left Column: Main Auction Player Frame */}
         <div style={{ flex: '1.1 1 50%', minWidth: '550px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {activePlayer ? (
-            <div className="glass-panel" style={{ 
-              padding: '36px', 
-              border: '1px solid var(--border-color)', 
+            <div className="glass-panel" style={{
+              padding: '36px',
+              border: '1px solid var(--border-color)',
               boxShadow: '0 15px 40px rgba(0,0,0,0.5)',
               position: 'relative',
               overflow: 'hidden'
             }}>
-              
+
               {/* Corner Watermark */}
-              <Gavel size={200} style={{ 
-                position: 'absolute', 
-                bottom: '-20px', 
-                right: '-20px', 
-                opacity: 0.03, 
+              <Gavel size={200} style={{
+                position: 'absolute',
+                bottom: '-20px',
+                right: '-20px',
+                opacity: 0.03,
                 color: 'white',
-                transform: 'rotate(-25deg)'
+                transform: 'rotate(-25deg)',
+                pointerEvents: 'none'
               }} />
- 
+
               {/* Player Information Frame */}
               <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap' }}>
-                
+
                 {/* Player Profile Photo */}
-                <div style={{ 
-                  width: '180px', 
-                  height: '180px', 
-                  borderRadius: '24px', 
+                <div style={{
+                  width: '180px',
+                  height: '180px',
+                  borderRadius: '24px',
                   background: 'linear-gradient(135deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.08) 100%)',
                   border: '1px solid var(--border-color)',
                   display: 'flex',
@@ -540,34 +541,34 @@ const AuctionPage = () => {
                     <PlayerPhoto playerId={activePlayer.id} playerName={activePlayer.fullName} size="180px" borderRadius="24px" style={{ border: 'none', background: 'transparent' }} />
                   )}
                 </div>
- 
+
                 {/* Player details */}
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                    <span style={{ 
-                      fontSize: '0.9rem', 
-                      background: 'rgba(255,255,255,0.06)', 
-                      padding: '4px 12px', 
+                    <span style={{
+                      fontSize: '0.9rem',
+                      background: 'rgba(255,255,255,0.06)',
+                      padding: '4px 12px',
                       borderRadius: '4px',
                       color: 'white',
                       fontWeight: '700'
                     }}>{activePlayer.wissenId}</span>
-                    <span style={{ 
-                      fontSize: '0.9rem', 
-                      background: 'rgba(255,255,255,0.05)', 
+                    <span style={{
+                      fontSize: '0.9rem',
+                      background: 'rgba(255,255,255,0.05)',
                       color: getSkillBadgeColor(activePlayer.skillLevel),
                       border: `1px solid ${getSkillBadgeColor(activePlayer.skillLevel)}33`,
-                      padding: '3px 12px', 
+                      padding: '3px 12px',
                       borderRadius: '4px',
                       fontWeight: '700',
                       textTransform: 'uppercase'
                     }}>{activePlayer.skillLevel}</span>
                   </div>
- 
+
                   <h3 style={{ fontSize: '2.8rem', fontWeight: '800', color: 'white', marginTop: '8px', lineHeight: '1.1' }}>
                     {activePlayer.fullName}
                   </h3>
- 
+
                   <div style={{ display: 'flex', gap: '20px', marginTop: '12px', color: 'var(--color-text-muted)', fontSize: '1rem', flexWrap: 'wrap' }}>
                     <span>Gender: <strong style={{ color: 'white' }}>{activePlayer.gender}</strong></span>
                     <span>&bull;</span>
@@ -575,7 +576,7 @@ const AuctionPage = () => {
                     <span>&bull;</span>
                     <span>Email: <strong style={{ color: 'white' }}>{activePlayer.email}</strong></span>
                   </div>
- 
+
                   {activePlayer.stats && (
                     <div style={{ display: 'flex', gap: '20px', marginTop: '12px', background: 'rgba(255,255,255,0.02)', padding: '10px 16px', borderRadius: '8px', border: '1px solid var(--border-color)', width: 'fit-content' }}>
                       <div><span style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>Matches Played</span><div style={{ fontWeight: '700', fontSize: '1.2rem', color: 'white' }}>{activePlayer.stats.matchesPlayed}</div></div>
@@ -585,12 +586,12 @@ const AuctionPage = () => {
                   )}
                 </div>
               </div>
- 
+
               {/* Bidding Grid */}
-              <div style={{ 
-                display: 'grid', 
-                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', 
-                gap: '20px', 
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                gap: '20px',
                 marginTop: '24px',
                 paddingTop: '20px',
                 borderTop: '1px solid var(--border-color)'
@@ -602,12 +603,12 @@ const AuctionPage = () => {
                     {activePlayer.basePrice.toLocaleString()} <span style={{ fontSize: '1rem', color: 'var(--color-text-muted)', fontWeight: 'normal' }}>pts</span>
                   </div>
                 </div>
- 
+
                 {/* Current Bid Display */}
-                <div className={animateBid ? 'animate-bid' : ''} style={{ 
-                  background: 'rgba(212, 252, 52, 0.04)', 
-                  padding: '16px 20px', 
-                  borderRadius: '12px', 
+                <div className={animateBid ? 'animate-bid' : ''} style={{
+                  background: 'rgba(212, 252, 52, 0.04)',
+                  padding: '16px 20px',
+                  borderRadius: '12px',
                   border: '1px solid rgba(212, 252, 52, 0.25)',
                   transition: 'all 0.1s ease'
                 }}>
@@ -620,14 +621,14 @@ const AuctionPage = () => {
                   </div>
                 </div>
               </div>
- 
+
               {/* Bidding Error Message */}
               {biddingError && (
                 <div style={{ marginTop: '20px', padding: '12px 16px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#ef4444', borderRadius: '8px', fontSize: '0.85rem' }}>
                   {biddingError}
                 </div>
               )}
- 
+
               {/* Action Buttons (Admin Only) */}
               {role === 'admin' ? (
                 <div style={{ marginTop: '24px' }}>
@@ -663,11 +664,11 @@ const AuctionPage = () => {
                       + 1000
                     </button>
                   </div>
- 
+
                   {/* Direct Controls */}
                   <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
-                    <button 
-                      onClick={() => setShowTeamModal(true)} 
+                    <button
+                      onClick={() => setShowTeamModal(true)}
                       className="btn btn-primary"
                       disabled={currentBid < activePlayer.basePrice}
                       style={{ flex: '2 1 auto', minWidth: '180px', padding: '12px 24px', fontSize: '1.1rem' }}
@@ -675,17 +676,17 @@ const AuctionPage = () => {
                       <Check size={20} />
                       Mark Sold
                     </button>
-                    
-                    <button 
-                      onClick={revertLastBid} 
+
+                    <button
+                      onClick={revertLastBid}
                       className="btn btn-secondary"
                       style={{ flex: '1 1 auto', minWidth: '110px', padding: '12px 20px', fontSize: '1.1rem', borderColor: 'rgba(251, 191, 36, 0.4)', color: '#fbbf24' }}
                     >
                       ↩ Revert
                     </button>
- 
-                    <button 
-                      onClick={passPlayer} 
+
+                    <button
+                      onClick={passPlayer}
                       className="btn btn-danger"
                       style={{ flex: '1 1 auto', minWidth: '110px', padding: '12px 20px', fontSize: '1.1rem' }}
                     >
@@ -696,11 +697,11 @@ const AuctionPage = () => {
                 </div>
               ) : (
                 /* Guest View - Read Only Notice */
-                <div style={{ 
-                  marginTop: '40px', 
-                  padding: '16px', 
-                  background: 'rgba(0, 240, 255, 0.02)', 
-                  border: '1px solid rgba(0, 240, 255, 0.1)', 
+                <div style={{
+                  marginTop: '40px',
+                  padding: '16px',
+                  background: 'rgba(0, 240, 255, 0.02)',
+                  border: '1px solid rgba(0, 240, 255, 0.1)',
                   borderRadius: '12px',
                   textAlign: 'center',
                   fontSize: '0.9rem',
@@ -738,9 +739,9 @@ const AuctionPage = () => {
                   View Rosters
                 </Link>
                 {role === 'admin' && passedCount > 0 && (
-                  <button 
-                    onClick={reAuction} 
-                    className="btn btn-primary" 
+                  <button
+                    onClick={reAuction}
+                    className="btn btn-primary"
                     style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}
                   >
                     🔄 Re-Auction Passed Players ({passedCount})
@@ -750,7 +751,7 @@ const AuctionPage = () => {
             </div>
           )}
         </div>
-        
+
         {/* Right Column: Team Roster Status Table */}
         <div style={{ flex: '0.9 1 45%', minWidth: '500px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div className="glass-panel" style={{ padding: '24px 30px', display: 'flex', flexDirection: 'column' }}>
@@ -777,35 +778,35 @@ const AuctionPage = () => {
                     const minFemales = businessRules.minFemales || 2;
                     const minBeginners = businessRules.minBeginners || 2;
                     const maxPlayers = businessRules.teamSizeLimit || 10;
- 
+
                     const femaleRemaining = Math.max(0, minFemales - femaleCount);
                     const beginnerRemaining = Math.max(0, minBeginners - beginnerCount);
- 
+
                     const requiresFemales = femaleCount < minFemales;
                     const requiresBeginners = beginnerCount < minBeginners;
- 
+
                     const spentPurse = businessRules.purseLimit - t.purseRemaining;
                     const spentPct = (spentPurse / businessRules.purseLimit) * 100;
                     const isPurseCritical = t.purseRemaining <= 15000;
                     const isPurseWarning = t.purseRemaining > 15000 && t.purseRemaining <= 30000;
- 
+
                     return (
                       <tr key={t.id || t.teamName}>
                         <td style={{ padding: '10px 14px', fontSize: '0.92rem', fontWeight: '700', color: t.themeColor || 'white', whiteSpace: 'nowrap' }}>
                           {t.teamName}
                         </td>
-                        <td style={{ 
-                          padding: '10px 14px', 
-                          fontSize: '0.92rem', 
-                          textAlign: 'right', 
+                        <td style={{
+                          padding: '10px 14px',
+                          fontSize: '0.92rem',
+                          textAlign: 'right',
                           fontWeight: '700',
                           color: isPurseCritical ? 'var(--color-danger)' : isPurseWarning ? 'var(--color-warning)' : 'var(--color-success)'
                         }}>
                           {t.purseRemaining.toLocaleString()}
                         </td>
                         <td style={{ padding: '10px 14px', fontSize: '0.92rem', textAlign: 'center' }}>
-                          <span style={{ 
-                            fontWeight: '700', 
+                          <span style={{
+                            fontWeight: '700',
                             color: requiresFemales ? 'var(--color-warning)' : 'var(--color-success)',
                             background: requiresFemales ? 'rgba(245, 158, 11, 0.08)' : 'rgba(16, 185, 129, 0.08)',
                             padding: '3px 10px',
@@ -817,8 +818,8 @@ const AuctionPage = () => {
                           </span>
                         </td>
                         <td style={{ padding: '10px 14px', fontSize: '0.92rem', textAlign: 'center' }}>
-                          <span style={{ 
-                            fontWeight: '700', 
+                          <span style={{
+                            fontWeight: '700',
                             color: requiresBeginners ? 'var(--color-warning)' : 'var(--color-success)',
                             background: requiresBeginners ? 'rgba(245, 158, 11, 0.08)' : 'rgba(16, 185, 129, 0.08)',
                             padding: '3px 10px',
@@ -863,7 +864,7 @@ const AuctionPage = () => {
               </h3>
               <button className="close-btn" onClick={() => setShowTeamModal(false)}>&times;</button>
             </div>
-            
+
             <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '20px' }}>
               Final Price: <strong style={{ color: 'var(--color-primary)' }}>{currentBid.toLocaleString()} pts</strong>
             </p>
@@ -907,15 +908,15 @@ const AuctionPage = () => {
                 }
 
                 const isEligible = canAfford && hasSpace && complianceFeasible;
-                
+
                 return (
-                  <div 
-                    key={t.id} 
+                  <div
+                    key={t.id}
                     onClick={(e) => {
                       e.stopPropagation();
                       if (isEligible) handleMarkSoldToTeam(t.id, t.teamName);
                     }}
-                    style={{ 
+                    style={{
                       padding: '16px',
                       background: 'rgba(255,255,255,0.02)',
                       border: `1px solid ${isEligible ? 'var(--border-color)' : 'rgba(239, 68, 68, 0.2)'}`,
@@ -924,8 +925,8 @@ const AuctionPage = () => {
                       opacity: isEligible ? 1 : 0.5,
                       transition: 'all 0.2s',
                     }}
-                    onMouseOver={(e) => { if(isEligible) { e.currentTarget.style.borderColor = t.themeColor || 'var(--color-primary)'; e.currentTarget.style.boxShadow = `0 0 15px ${t.themeColor || 'var(--color-primary)'}`; } }}
-                    onMouseOut={(e) => { if(isEligible) { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.boxShadow = 'none'; } }}
+                    onMouseOver={(e) => { if (isEligible) { e.currentTarget.style.borderColor = t.themeColor || 'var(--color-primary)'; e.currentTarget.style.boxShadow = `0 0 15px ${t.themeColor || 'var(--color-primary)'}`; } }}
+                    onMouseOut={(e) => { if (isEligible) { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.boxShadow = 'none'; } }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                       <span style={{ fontWeight: '700', color: t.themeColor || 'white' }}>{t.teamName}</span>
@@ -953,20 +954,20 @@ const AuctionPage = () => {
 
       {/* Toast Notification */}
       {toastMessage && (
-        <div 
+        <div
           onClick={() => setToastMessage(null)}
           style={{
-            position: 'fixed', 
-            top: '20px', 
-            left: '50%', 
-            transform: 'translateX(-50%)', 
-            zIndex: 9999, 
-            background: toastMessage.type === 'error' ? 'var(--color-danger)' : 'var(--color-success)', 
-            color: toastMessage.type === 'error' ? 'white' : '#000', 
-            padding: '16px 24px', 
-            borderRadius: '8px', 
-            fontWeight: 'bold', 
-            boxShadow: '0 4px 20px rgba(0,0,0,0.5)', 
+            position: 'fixed',
+            top: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 9999,
+            background: toastMessage.type === 'error' ? 'var(--color-danger)' : 'var(--color-success)',
+            color: toastMessage.type === 'error' ? 'white' : '#000',
+            padding: '16px 24px',
+            borderRadius: '8px',
+            fontWeight: 'bold',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
             cursor: 'pointer',
             animation: 'fadeIn 0.2s ease-out'
           }}
