@@ -5,6 +5,7 @@ import org.hibernate.Hibernate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.wissen.auction.auction.BidLog;
 import com.wissen.auction.auction.BidLogRepository;
 import com.wissen.auction.player.Player;
 import com.wissen.auction.player.PlayerDTO;
@@ -129,29 +130,20 @@ public class TeamService {
         }
 
         // Block delete if this team is the current highest bidder on any active player.
-        // Selling after deletion would reference a non-existent team.
-        List<Player> unsoldPlayers = playerRepository.findByLocationIgnoreCaseAndStatus(
-                city, Player.PlayerStatus.UNSOLD);
-        for (Player p : unsoldPlayers) {
-            List<com.wissen.auction.auction.BidLog> bids =
-                    bidLogRepository.findByPlayerOrderByCreatedAtDesc(p);
-            if (!bids.isEmpty() && bids.get(0).getTeamName().equalsIgnoreCase(team.getTeamName())) {
-                throw new IllegalStateException(
-                    "Cannot delete '" + team.getTeamName() + "' — they hold the current highest bid on "
-                    + p.getFullName() + ". Revert or complete the bid first.");
-            }
+        // Single query: fetch the latest bid for this city scoped to this team name.
+        // This replaces the old O(n) loop that queried bid logs per-player.
+        List<BidLog> activeBidsForTeam =
+                bidLogRepository.findTopActiveBidByTeamNameAndCity(team.getTeamName(), city);
+        if (!activeBidsForTeam.isEmpty()) {
+            BidLog topBid = activeBidsForTeam.get(0);
+            throw new IllegalStateException(
+                "Cannot delete '" + team.getTeamName() + "' — they hold the current highest bid on "
+                + topBid.getPlayer().getFullName() + ". Revert or complete the bid first.");
         }
 
-        // Remove dependency: reset all players bought by this team
-        List<Player> players = team.getPlayers();
-        if (players != null && !players.isEmpty()) {
-            for (Player player : players) {
-                player.setStatus(Player.PlayerStatus.UNSOLD);
-                player.setSoldPrice(null);
-                player.setSoldTeam(null);
-                playerRepository.save(player);
-            }
-        }
+        // Bulk-reset all players owned by this team in a single UPDATE query
+        // instead of the old O(n) loop of individual saves.
+        playerRepository.bulkReleasePlayersByTeam(id);
 
         teamRepository.delete(team);
     }

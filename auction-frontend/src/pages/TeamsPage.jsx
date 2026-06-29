@@ -25,6 +25,8 @@ const TeamsPage = () => {
   const [activeRosterTeam, setActiveRosterTeam] = useState(null);
   const [playerToRelease, setPlayerToRelease] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
+  const [deleteConfirmTeam, setDeleteConfirmTeam] = useState(null); // team pending delete confirmation
+  const [deletingTeamId, setDeletingTeamId] = useState(null); // id being deleted (loading state)
 
   // Dismiss toast on any click anywhere on the page
   useEffect(() => {
@@ -201,11 +203,25 @@ const TeamsPage = () => {
 
   const posterRef = useRef(null);
 
-  const handleDeleteTeam = async (team) => {
-    if (window.confirm(`WARNING: Deleting team '${team.teamName}' will release all its purchased players back into the UNSOLD draft pool. Are you sure you want to proceed?`)) {
+  const handleDeleteTeam = (team) => {
+    setDeleteConfirmTeam(team);
+  };
+
+  const confirmDeleteTeam = async () => {
+    if (!deleteConfirmTeam) return;
+    const team = deleteConfirmTeam;
+    setDeleteConfirmTeam(null);
+    setDeletingTeamId(team.id);
+    try {
       await deleteTeam(team.id);
       setToastMessage({ text: `Team ${team.teamName} has been deleted and its players released.`, type: 'success' });
       setTimeout(() => setToastMessage(null), 2500);
+    } catch (error) {
+      console.error('Failed to delete team:', error);
+      setToastMessage({ text: 'Delete failed: ' + error.message, type: 'error' });
+      setTimeout(() => setToastMessage(null), 4000);
+    } finally {
+      setDeletingTeamId(null);
     }
   };
 
@@ -337,17 +353,19 @@ const TeamsPage = () => {
                         </button>
                         <button 
                           onClick={() => handleDeleteTeam(team)}
+                          disabled={deletingTeamId === team.id}
                           style={{
                             width: '24px',
                             height: '24px',
                             borderRadius: '4px',
-                            background: 'rgba(239, 68, 68, 0.1)',
+                            background: deletingTeamId === team.id ? 'rgba(239,68,68,0.05)' : 'rgba(239, 68, 68, 0.1)',
                             border: '1px solid rgba(239, 68, 68, 0.2)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             color: '#ef4444',
-                            cursor: 'pointer'
+                            cursor: deletingTeamId === team.id ? 'not-allowed' : 'pointer',
+                            opacity: deletingTeamId === team.id ? 0.5 : 1,
                           }}
                           title="Delete Team"
                         >
@@ -731,6 +749,36 @@ const TeamsPage = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Team Confirmation Modal */}
+      {deleteConfirmTeam && (
+        <div className="modal-overlay" style={{ zIndex: 10000 }}>
+          <div className="modal-content" style={{ maxWidth: '420px', textAlign: 'center' }}>
+            <h3 className="modal-title" style={{ color: 'var(--color-danger)', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+              <Trash2 size={20} /> Delete Team
+            </h3>
+            <p style={{ color: 'var(--color-text-muted)', marginBottom: '8px', fontSize: '0.9rem' }}>
+              You are about to delete:
+            </p>
+            <p style={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '16px' }}>
+              {deleteConfirmTeam.teamName}
+            </p>
+            <p style={{ color: 'var(--color-warning)', marginBottom: '24px', fontSize: '0.85rem', background: 'rgba(234,179,8,0.08)', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(234,179,8,0.2)' }}>
+              ⚠️ All players purchased by this team will be released back to the UNSOLD pool.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '12px' }}>
+              <button className="btn btn-secondary" onClick={() => setDeleteConfirmTeam(null)}>Cancel</button>
+              <button
+                className="btn btn-primary"
+                style={{ background: 'var(--color-danger)', color: 'white', border: 'none' }}
+                onClick={confirmDeleteTeam}
+              >
+                Yes, Delete Team
+              </button>
+            </div>
           </div>
         </div>
       )}
