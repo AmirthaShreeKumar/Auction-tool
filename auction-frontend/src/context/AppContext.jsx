@@ -255,20 +255,41 @@ export const AppProvider = ({ children }) => {
   };
 
   const deleteTeam = async (id) => {
-    // Optimistically find released players before deleting
-    const team = teams.find(t => t.id === id);
-    await apiFetch(`/api/${city}/teams/${id}`, { method: 'DELETE' });
+    // Snapshot state for rollback in case the backend rejects the delete
+    const teamToDelete = teams.find(t => t.id === id);
+
+    // --- Optimistic update: remove team and release its players immediately ---
+    // This makes the UI respond instantly without waiting for the network.
     setTeams(prev => prev.filter(t => t.id !== id));
-    // Mark the team's players as UNSOLD optimistically
-    if (team?.players?.length) {
-      const releasedIds = new Set(team.players.map(p => p.id));
+    if (teamToDelete?.players?.length) {
+      const releasedIds = new Set(teamToDelete.players.map(p => p.id));
       setPlayers(prev => prev.map(p =>
         releasedIds.has(p.id)
           ? { ...p, status: 'UNSOLD', soldPrice: null, soldTeamId: null, soldTeam: null }
           : p
       ));
     }
+
+    // Fire the network request — revert the optimistic update on failure
+    try {
+      await apiFetch(`/api/${city}/teams/${id}`, { method: 'DELETE' });
+    } catch (err) {
+      // Restore the team and its players back to their original state
+      if (teamToDelete) {
+        setTeams(prev => [...prev, teamToDelete]);
+        if (teamToDelete.players?.length) {
+          const releasedIds = new Set(teamToDelete.players.map(p => p.id));
+          setPlayers(prev => prev.map(p =>
+            releasedIds.has(p.id)
+              ? { ...p, status: 'SOLD', soldPrice: p.soldPrice, soldTeamId: id, soldTeam: teamToDelete.teamName }
+              : p
+          ));
+        }
+      }
+      throw err; // re-throw so TeamsPage can show the error toast
+    }
   };
+
 
   const releasePlayerFromTeam = async (teamId, playerId) => {
     const updatedTeam = await apiFetch(`/api/${city}/teams/${teamId}/release-player`, {

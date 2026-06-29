@@ -143,9 +143,13 @@ public class TeamService {
 
         // Bulk-reset all players owned by this team in a single UPDATE query
         // instead of the old O(n) loop of individual saves.
+        // clearAutomatically=true ensures the L1 cache is invalidated so the
+        // subsequent delete does not trigger a lazy collection load.
         playerRepository.bulkReleasePlayersByTeam(id);
 
-        teamRepository.delete(team);
+        // Direct JPQL DELETE — bypasses Spring Data's em.find()+em.remove() overhead.
+        // Safe because bulkReleasePlayersByTeam already cleared all FK references.
+        teamRepository.deleteTeamById(id);
     }
 
     // ---- RELEASE PLAYER ----
