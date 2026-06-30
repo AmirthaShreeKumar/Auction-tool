@@ -20,11 +20,13 @@ const TeamsPage = () => {
   const [editingTeam, setEditingTeam] = useState(null);
   const [logoUrl, setLogoUrl] = useState('');
   const [logoSvg, setLogoSvg] = useState('');
-  
+
   // Selected Team for viewing Roster Details
   const [activeRosterTeam, setActiveRosterTeam] = useState(null);
   const [playerToRelease, setPlayerToRelease] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
+  const [deleteConfirmTeam, setDeleteConfirmTeam] = useState(null); // team pending delete confirmation
+  const [deletingTeamId, setDeletingTeamId] = useState(null); // id being deleted (loading state)
   const [genderFilter, setGenderFilter] = useState('all');
 
   // Reset gender filter when switching teams
@@ -151,9 +153,9 @@ const TeamsPage = () => {
 
         // Compress image using PNG to keep transparency
         const resizedDataUrl = canvas.toDataURL('image/png');
-        
+
         // Calculate base64 string size in KB roughly
-        const base64SizeKB = (resizedDataUrl.length * (3/4)) / 1024;
+        const base64SizeKB = (resizedDataUrl.length * (3 / 4)) / 1024;
         console.log(`[Upload] Resized Image to ${width}x${height}. Compressed Base64 size: ${base64SizeKB.toFixed(2)} KB`);
 
         setLogoUrl(resizedDataUrl);
@@ -207,11 +209,25 @@ const TeamsPage = () => {
 
   const posterRef = useRef(null);
 
-  const handleDeleteTeam = async (team) => {
-    if (window.confirm(`WARNING: Deleting team '${team.teamName}' will release all its purchased players back into the UNSOLD draft pool. Are you sure you want to proceed?`)) {
+  const handleDeleteTeam = (team) => {
+    setDeleteConfirmTeam(team);
+  };
+
+  const confirmDeleteTeam = async () => {
+    if (!deleteConfirmTeam) return;
+    const team = deleteConfirmTeam;
+    setDeleteConfirmTeam(null);
+    setDeletingTeamId(team.id);
+    try {
       await deleteTeam(team.id);
       setToastMessage({ text: `Team ${team.teamName} has been deleted and its players released.`, type: 'success' });
       setTimeout(() => setToastMessage(null), 2500);
+    } catch (error) {
+      console.error('Failed to delete team:', error);
+      setToastMessage({ text: 'Delete failed: ' + error.message, type: 'error' });
+      setTimeout(() => setToastMessage(null), 4000);
+    } finally {
+      setDeletingTeamId(null);
     }
   };
 
@@ -239,9 +255,9 @@ const TeamsPage = () => {
 
   const filteredPlayers = currentActiveTeam?.players
     ? currentActiveTeam.players.filter(p => {
-        if (genderFilter === 'all') return true;
-        return p.gender?.toLowerCase() === genderFilter.toLowerCase();
-      })
+      if (genderFilter === 'all') return true;
+      return p.gender?.toLowerCase() === genderFilter.toLowerCase();
+    })
     : [];
 
   return (
@@ -253,8 +269,8 @@ const TeamsPage = () => {
           <p className="page-subtitle">Rosters and purse tracking for {city.toUpperCase()} location.</p>
         </div>
         {role === 'admin' && (
-          <button 
-            onClick={() => { resetForm(); setShowCreateModal(true); }} 
+          <button
+            onClick={() => { resetForm(); setShowCreateModal(true); }}
             className="btn btn-primary"
             style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
           >
@@ -265,50 +281,50 @@ const TeamsPage = () => {
       </div>
 
       {/* Main Split View Layout */}
-      <div style={{ 
-        display: 'flex', 
-        gap: '24px', 
-        marginTop: '20px', 
-        alignItems: 'flex-start', 
-        flexWrap: 'wrap' 
+      <div style={{
+        display: 'flex',
+        gap: '24px',
+        marginTop: '20px',
+        alignItems: 'flex-start',
+        flexWrap: 'wrap'
       }}>
-        
+
         {/* Left Column: Team List Sidebar */}
-        <div style={{ 
-          flex: '1 1 350px', 
-          maxWidth: '420px', 
-          display: 'flex', 
-          flexDirection: 'column', 
-          gap: '12px', 
-          maxHeight: 'calc(100vh - 160px)', 
-          overflowY: 'auto', 
-          paddingRight: '12px' 
+        <div style={{
+          flex: '1 1 350px',
+          maxWidth: '420px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px',
+          maxHeight: 'calc(100vh - 160px)',
+          overflowY: 'auto',
+          paddingRight: '12px'
         }}>
           {cityTeams.map((team) => {
             const isRosterFull = team.totalPlayers === businessRules.teamSizeLimit;
             const isFemaleCompliant = team.femalePlayers >= businessRules.minFemales;
             const isBeginnerCompliant = team.beginnerPlayers >= businessRules.minBeginners;
             const isSelected = currentActiveTeam?.id === team.id;
-            
+
             const spentPurse = businessRules.purseLimit - team.purseRemaining;
             const spentPct = (spentPurse / businessRules.purseLimit) * 100;
             const advancedCount = team.players ? team.players.filter(p => p.skillLevel?.toLowerCase() === 'advanced').length : 0;
 
             return (
-              <div 
-                key={team.id || team.teamName} 
-                className="glass-panel team-card" 
+              <div
+                key={team.id || team.teamName}
+                className="glass-panel team-card"
                 onClick={() => setActiveRosterTeam(team)}
-                style={{ 
+                style={{
                   '--team-color': team.themeColor || '#1d4ed8',
-                  padding: '16px', 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  border: isSelected 
-                    ? `2px solid ${team.themeColor || 'var(--color-primary)'}` 
-                    : '1px solid var(--border-color)', 
-                  boxShadow: isSelected 
-                    ? `0 0 15px rgba(255,255,255,0.05)` 
+                  padding: '16px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  border: isSelected
+                    ? `2px solid ${team.themeColor || 'var(--color-primary)'}`
+                    : '1px solid var(--border-color)',
+                  boxShadow: isSelected
+                    ? `0 0 15px rgba(255,255,255,0.05)`
                     : 'none',
                   borderRadius: '12px',
                   cursor: 'pointer',
@@ -330,7 +346,7 @@ const TeamsPage = () => {
                     )}
                     {role === 'admin' && (
                       <div style={{ display: 'flex', gap: '4px' }}>
-                        <button 
+                        <button
                           onClick={() => handleEditClick(team)}
                           style={{
                             width: '24px',
@@ -348,19 +364,21 @@ const TeamsPage = () => {
                         >
                           <Pencil size={12} />
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleDeleteTeam(team)}
+                          disabled={deletingTeamId === team.id}
                           style={{
                             width: '24px',
                             height: '24px',
                             borderRadius: '4px',
-                            background: 'rgba(239, 68, 68, 0.1)',
+                            background: deletingTeamId === team.id ? 'rgba(239,68,68,0.05)' : 'rgba(239, 68, 68, 0.1)',
                             border: '1px solid rgba(239, 68, 68, 0.2)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             color: '#ef4444',
-                            cursor: 'pointer'
+                            cursor: deletingTeamId === team.id ? 'not-allowed' : 'pointer',
+                            opacity: deletingTeamId === team.id ? 0.5 : 1,
                           }}
                           title="Delete Team"
                         >
@@ -418,7 +436,7 @@ const TeamsPage = () => {
         <div style={{ flex: '2 1 600px', minWidth: '350px' }}>
           {currentActiveTeam ? (
             <div className="glass-panel" style={{ padding: '24px', border: '1px solid var(--border-color)', borderRadius: '16px', display: 'flex', flexDirection: 'column' }}>
-              
+
               {/* Logo / Header details */}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '20px' }}>
                 <TeamLogo teamName={currentActiveTeam.teamName} themeColor={currentActiveTeam.themeColor || '#1d4ed8'} size={90} logoUrl={currentActiveTeam.logoUrl} logoSvg={currentActiveTeam.logoSvg} />
@@ -426,7 +444,7 @@ const TeamsPage = () => {
                   {currentActiveTeam.teamName}
                 </h3>
                 <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>Owner: <strong>{currentActiveTeam.ownerName}</strong></span>
-                
+
                 <div style={{ marginTop: '12px', textAlign: 'center' }}>
                   <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--color-text-muted)', fontWeight: '700', letterSpacing: '0.05em' }}>Purse Remaining</div>
                   <div style={{ fontSize: '2.2rem', fontWeight: '900', color: 'var(--color-success)', fontFamily: 'var(--font-display)', marginTop: '2px' }}>
@@ -478,10 +496,10 @@ const TeamsPage = () => {
 
               {/* Roster / Player Cards */}
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'center', 
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
                   marginBottom: '16px',
                   flexWrap: 'wrap',
                   gap: '12px'
@@ -491,12 +509,12 @@ const TeamsPage = () => {
                   </h4>
 
                   {/* Gender Filter Pills */}
-                  <div style={{ 
-                    display: 'flex', 
-                    background: 'rgba(255, 255, 255, 0.03)', 
-                    padding: '2px', 
-                    borderRadius: '8px', 
-                    border: '1px solid var(--border-color)' 
+                  <div style={{
+                    display: 'flex',
+                    background: 'rgba(255, 255, 255, 0.03)',
+                    padding: '2px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-color)'
                   }}>
                     {['all', 'male', 'female'].map((g) => {
                       const isActive = genderFilter === g;
@@ -526,45 +544,45 @@ const TeamsPage = () => {
                 </div>
 
                 {currentActiveTeam.players.length === 0 ? (
-                  <div style={{ 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    alignItems: 'center', 
-                    justifyContent: 'center', 
-                    gap: '12px', 
-                    padding: '60px 20px', 
-                    background: 'rgba(255,255,255,0.01)', 
-                    borderRadius: '12px', 
-                    border: '1px dashed var(--border-color)', 
-                    color: 'var(--color-text-muted)' 
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '12px',
+                    padding: '60px 20px',
+                    background: 'rgba(255,255,255,0.01)',
+                    borderRadius: '12px',
+                    border: '1px dashed var(--border-color)',
+                    color: 'var(--color-text-muted)'
                   }}>
                     <Eye size={40} style={{ opacity: 0.2 }} />
                     <span>No players acquired yet</span>
                   </div>
                 ) : filteredPlayers.length === 0 ? (
-                  <div style={{ 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    alignItems: 'center', 
-                    justifyContent: 'center', 
-                    gap: '12px', 
-                    padding: '60px 20px', 
-                    background: 'rgba(255,255,255,0.01)', 
-                    borderRadius: '12px', 
-                    border: '1px dashed var(--border-color)', 
-                    color: 'var(--color-text-muted)' 
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '12px',
+                    padding: '60px 20px',
+                    background: 'rgba(255,255,255,0.01)',
+                    borderRadius: '12px',
+                    border: '1px dashed var(--border-color)',
+                    color: 'var(--color-text-muted)'
                   }}>
                     <Eye size={40} style={{ opacity: 0.2 }} />
                     <span>No {genderFilter} players found in this squad</span>
                   </div>
                 ) : (
-                  <div style={{ 
-                    display: 'grid', 
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', 
-                    gap: '12px', 
-                    maxHeight: '40vh', 
-                    overflowY: 'auto', 
-                    paddingRight: '12px' 
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+                    gap: '12px',
+                    maxHeight: '40vh',
+                    overflowY: 'auto',
+                    paddingRight: '12px'
                   }}>
                     {filteredPlayers.map((p) => (
                       <div key={p.id} style={{
@@ -670,33 +688,33 @@ const TeamsPage = () => {
             <form onSubmit={handleSubmit}>
               <div className="form-group">
                 <label className="form-label">Team Name *</label>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  placeholder="e.g. Bangalore Smashers" 
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g. Bangalore Smashers"
                   value={teamName}
                   onChange={(e) => setTeamName(e.target.value)}
-                  required 
+                  required
                 />
               </div>
 
               <div className="form-group">
                 <label className="form-label">Owner Name *</label>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  placeholder="Enter owner full name" 
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Enter owner full name"
                   value={ownerName}
                   onChange={(e) => setOwnerName(e.target.value)}
-                  required 
+                  required
                 />
               </div>
 
               <div className="form-group">
                 <label className="form-label">Theme Color</label>
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                  <input 
-                    type="color" 
+                  <input
+                    type="color"
                     value={themeColor}
                     onChange={(e) => setThemeColor(e.target.value)}
                     style={{
@@ -716,9 +734,9 @@ const TeamsPage = () => {
               {/* Logo Section */}
               <div className="form-group" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px', marginTop: '16px' }}>
                 <label className="form-label">Team Logo</label>
-                
+
                 <div style={{ marginBottom: '12px' }}>
-                  <input 
+                  <input
                     type="file"
                     accept="image/png, image/svg+xml, image/jpeg"
                     onChange={handleFileUpload}
@@ -774,22 +792,22 @@ const TeamsPage = () => {
 
               <div className="form-group">
                 <label className="form-label">Initial Purse Balance</label>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  value={`${businessRules.purseLimit.toLocaleString()} Points`} 
-                  disabled 
+                <input
+                  type="text"
+                  className="form-input"
+                  value={`${businessRules.purseLimit.toLocaleString()} Points`}
+                  disabled
                   style={{ background: 'rgba(255,255,255,0.02)', color: 'var(--color-text-muted)' }}
                 />
               </div>
 
               <div className="form-group">
                 <label className="form-label">Location (City)</label>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  value={city.toUpperCase()} 
-                  disabled 
+                <input
+                  type="text"
+                  className="form-input"
+                  value={city.toUpperCase()}
+                  disabled
                   style={{ background: 'rgba(255,255,255,0.02)', color: 'var(--color-text-muted)' }}
                 />
               </div>
@@ -803,6 +821,36 @@ const TeamsPage = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Team Confirmation Modal */}
+      {deleteConfirmTeam && (
+        <div className="modal-overlay" style={{ zIndex: 10000 }}>
+          <div className="modal-content" style={{ maxWidth: '420px', textAlign: 'center' }}>
+            <h3 className="modal-title" style={{ color: 'var(--color-danger)', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+              <Trash2 size={20} /> Delete Team
+            </h3>
+            <p style={{ color: 'var(--color-text-muted)', marginBottom: '8px', fontSize: '0.9rem' }}>
+              You are about to delete:
+            </p>
+            <p style={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '16px' }}>
+              {deleteConfirmTeam.teamName}
+            </p>
+            <p style={{ color: 'var(--color-warning)', marginBottom: '24px', fontSize: '0.85rem', background: 'rgba(234,179,8,0.08)', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(234,179,8,0.2)' }}>
+              ⚠️ All players purchased by this team will be released back to the UNSOLD pool.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '12px' }}>
+              <button className="btn btn-secondary" onClick={() => setDeleteConfirmTeam(null)}>Cancel</button>
+              <button
+                className="btn btn-primary"
+                style={{ background: 'var(--color-danger)', color: 'white', border: 'none' }}
+                onClick={confirmDeleteTeam}
+              >
+                Yes, Delete Team
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -825,19 +873,19 @@ const TeamsPage = () => {
 
       {/* Toast Notification */}
       {toastMessage && (
-        <div 
+        <div
           style={{
-            position: 'fixed', 
-            top: '20px', 
-            left: '50%', 
-            transform: 'translateX(-50%)', 
-            zIndex: 9999, 
-            background: toastMessage.type === 'error' ? 'var(--color-danger)' : 'var(--color-success)', 
-            color: toastMessage.type === 'error' ? 'white' : '#000', 
-            padding: '16px 24px', 
-            borderRadius: '8px', 
-            fontWeight: 'bold', 
-            boxShadow: '0 4px 20px rgba(0,0,0,0.5)', 
+            position: 'fixed',
+            top: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 9999,
+            background: toastMessage.type === 'error' ? 'var(--color-danger)' : 'var(--color-success)',
+            color: toastMessage.type === 'error' ? 'white' : '#000',
+            padding: '16px 24px',
+            borderRadius: '8px',
+            fontWeight: 'bold',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
             cursor: 'pointer',
             animation: 'fadeIn 0.2s ease-out'
           }}

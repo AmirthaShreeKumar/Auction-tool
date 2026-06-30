@@ -107,4 +107,21 @@ public interface PlayerRepository extends JpaRepository<Player, Long> {
           AND p.status = 'SOLD'
         """)
     List<Object[]> findSoldPlayersProjectionByLocation(@Param("city") String city);
+
+    /**
+     * Bulk-reset all players sold to a specific team: mark them UNSOLD and
+     * clear their sold price and team association in a single UPDATE statement.
+     * Used by TeamService.deleteTeam to avoid O(n) individual saves.
+     *
+     * clearAutomatically=true flushes the Hibernate L1 cache after the bulk UPDATE
+     * so the EntityManager does not hold a stale players proxy for this team,
+     * which would otherwise trigger an extra SELECT when the team entity is deleted.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+        UPDATE Player p
+        SET p.status = 'UNSOLD', p.soldPrice = NULL, p.soldTeam = NULL
+        WHERE p.soldTeam.id = :teamId
+        """)
+    int bulkReleasePlayersByTeam(@Param("teamId") Long teamId);
 }
