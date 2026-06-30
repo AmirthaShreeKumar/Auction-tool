@@ -223,11 +223,11 @@ const RosterTable = ({ players, themeColor, vars }) => {
       border: '1.5px solid rgba(255, 255, 255, 0.06)',
       borderLeft: `5px solid ${themeColor}`,
       borderRadius: '12px',
-      padding: '16px 20px',
+      padding: '12px 16px',
       boxShadow: '0 8px 30px rgba(0,0,0,0.4)',
       boxSizing: 'border-box',
-      marginBottom: '24px',
-      minHeight: '430px',
+      marginBottom: '14px',
+      minHeight: '390px',
       display: 'flex',
       flexDirection: 'column',
       justifyContent: players.length === 0 ? 'center' : 'flex-start'
@@ -240,11 +240,11 @@ const RosterTable = ({ players, themeColor, vars }) => {
       }}>
         <thead>
           <tr style={{ borderBottom: `2.5px solid ${themeColor}` }}>
-            <th style={{ padding: '10px 8px', color: themeColor, fontSize: '0.85rem', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>S.No</th>
-            <th style={{ padding: '10px 8px', color: themeColor, fontSize: '0.85rem', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>Wissen ID</th>
-            <th style={{ padding: '10px 8px', color: themeColor, fontSize: '0.85rem', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>Full Name</th>
-            <th style={{ padding: '10px 8px', color: themeColor, fontSize: '0.85rem', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>Gender</th>
-            <th style={{ padding: '10px 8px', color: themeColor, fontSize: '0.85rem', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>Skill Category</th>
+            <th style={{ padding: '6px 8px', color: themeColor, fontSize: '0.85rem', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>S.No</th>
+            <th style={{ padding: '6px 8px', color: themeColor, fontSize: '0.85rem', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>Wissen ID</th>
+            <th style={{ padding: '6px 8px', color: themeColor, fontSize: '0.85rem', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>Full Name</th>
+            <th style={{ padding: '6px 8px', color: themeColor, fontSize: '0.85rem', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>Gender</th>
+            <th style={{ padding: '6px 8px', color: themeColor, fontSize: '0.85rem', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>Skill Category</th>
           </tr>
         </thead>
         <tbody>
@@ -255,19 +255,19 @@ const RosterTable = ({ players, themeColor, vars }) => {
 
             return (
               <tr key={p.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', backgroundColor: idx % 2 === 0 ? 'rgba(255, 255, 255, 0.01)' : 'transparent' }}>
-                <td style={{ padding: '10px 8px', fontSize: '0.9rem', fontWeight: '700', color: 'rgba(255,255,255,0.6)' }}>
+                <td style={{ padding: '6px 8px', fontSize: '0.9rem', fontWeight: '700', color: 'rgba(255,255,255,0.6)' }}>
                   {String(idx + 1).padStart(2, '0')}
                 </td>
-                <td style={{ padding: '10px 8px', fontSize: '0.9rem', fontWeight: '700', color: 'white' }}>
+                <td style={{ padding: '6px 8px', fontSize: '0.9rem', fontWeight: '700', color: 'white' }}>
                   {p.wissenId}
                 </td>
-                <td style={{ padding: '10px 8px', fontSize: '0.95rem', fontWeight: '800', color: 'white', textTransform: 'uppercase' }}>
+                <td style={{ padding: '6px 8px', fontSize: '0.95rem', fontWeight: '800', color: 'white', textTransform: 'uppercase' }}>
                   {p.fullName}
                 </td>
-                <td style={{ padding: '10px 8px', fontSize: '0.9rem', color: 'rgba(255,255,255,0.8)' }}>
+                <td style={{ padding: '6px 8px', fontSize: '0.9rem', color: 'rgba(255,255,255,0.8)' }}>
                   {p.gender}
                 </td>
-                <td style={{ padding: '10px 8px' }}>
+                <td style={{ padding: '6px 8px' }}>
                   <span style={{
                     color: skillColor,
                     fontWeight: '900',
@@ -535,7 +535,7 @@ const TeamCardExport = forwardRef(({ team }, ref) => {
         backgroundColor: vars.darkBg,
         color: 'white',
         fontFamily: "'Montserrat', 'Inter', sans-serif",
-        padding: '40px 40px 30px 40px',
+        padding: '30px 40px 20px 40px',
         position: 'relative',
         overflow: 'hidden',
         boxSizing: 'border-box',
@@ -551,17 +551,17 @@ const TeamCardExport = forwardRef(({ team }, ref) => {
 
       {/* Top Section - Brand Hero */}
       <div style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', width: '100%' }}>
-        <div style={{ display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-          {/* Logo container: 130px for SVGs/defaults, scaled up to 165px for custom uploaded image logos */}
+        <div style={{ display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+          {/* Logo container: 110px for SVGs/defaults, scaled up to 140px for custom uploaded image logos */}
           <div style={{ 
             display: 'flex', 
             alignItems: 'center', 
-            width: team.logoUrl ? '165px' : '130px', 
-            height: team.logoUrl ? '165px' : '130px', 
+            width: team.logoUrl ? '140px' : '110px', 
+            height: team.logoUrl ? '140px' : '110px', 
             justifyContent: 'center',
             flexShrink: 0
           }}>
-            <TeamLogo teamName={team.teamName} themeColor={themeColor} size={team.logoUrl ? 165 : 130} logoUrl={team.logoUrl} logoSvg={team.logoSvg} />
+            <TeamLogo teamName={team.teamName} themeColor={themeColor} size={team.logoUrl ? 140 : 110} logoUrl={team.logoUrl} logoSvg={team.logoSvg} />
           </div>
           
           {/* Massive team name */}
@@ -582,7 +582,7 @@ const TeamCardExport = forwardRef(({ team }, ref) => {
         </div>
 
         {/* Slanted Championship Owner Banner */}
-        <div style={{ display: 'flex', gap: '0px', marginBottom: '24px', transform: 'skewX(-12deg)', alignSelf: 'center' }}>
+        <div style={{ display: 'flex', gap: '0px', marginBottom: '12px', transform: 'skewX(-12deg)', alignSelf: 'center' }}>
           <div style={{ 
             backgroundColor: themeColor, 
             padding: '8px 24px', 
@@ -625,19 +625,19 @@ const TeamCardExport = forwardRef(({ team }, ref) => {
             </span>
           </div>
         </div>
+      </div>
 
-        {/* Roster Players Tabular Grid */}
-        <div style={{ width: '100%', margin: '0 auto' }}>
-          <RosterTable 
-            players={sortedPlayers} 
-            themeColor={themeColor} 
-            vars={vars} 
-          />
-        </div>
+      {/* Roster Players Tabular Grid */}
+      <div style={{ width: '100%', margin: '0 auto', position: 'relative', zIndex: 10 }}>
+        <RosterTable 
+          players={sortedPlayers} 
+          themeColor={themeColor} 
+          vars={vars} 
+        />
       </div>
 
       {/* Bottom Section - Championship Stats & Slogan */}
-      <div style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', width: '100%', gap: '16px' }}>
+      <div style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', width: '100%', gap: '12px' }}>
         {/* Stats Container (4 individual cards mapping to triadic colors) */}
         <div style={{ display: 'flex', width: '100%', gap: '12px' }}>
           <StatCard 
@@ -667,7 +667,7 @@ const TeamCardExport = forwardRef(({ team }, ref) => {
         </div>
 
         {/* Dynamic Sporty Slogan */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '4px', gap: '4px', paddingBottom: '24px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '0px', gap: '4px', paddingBottom: '12px' }}>
           <div style={{ 
             fontFamily: "'Montserrat', sans-serif", 
             fontSize: '1.15rem', 

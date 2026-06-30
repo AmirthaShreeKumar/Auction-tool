@@ -70,6 +70,7 @@ const PlayersPage = () => {
   const { players, addPlayer, importPlayersFromExcel, updatePlayer, deletePlayer, clearAllPlayers, uploadPlayerPhoto } = useContext(AppContext);
 
   const [skillFilter, setSkillFilter]   = useState('All');
+  const [genderFilter, setGenderFilter] = useState('All');
   const [searchQuery, setSearchQuery]   = useState('');
   const [showAddModal, setShowAddModal]   = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
@@ -120,16 +121,15 @@ const PlayersPage = () => {
   // Filter players by City
   const cityPlayers = players.filter(p => p.location.toLowerCase() === city.toLowerCase());
 
-  // Filter players by Skill
-  const skilledPlayers = skillFilter === 'All' 
-    ? cityPlayers 
-    : cityPlayers.filter(p => p.skillLevel.toLowerCase() === skillFilter.toLowerCase());
-
-  // Filter players by Search query (name or wissen ID)
-  const filteredPlayers = skilledPlayers.filter(p => 
-    p.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.wissenId.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filter players by Skill, Gender, and Search query
+  const filteredPlayers = cityPlayers.filter(p => {
+    const matchesSkill = skillFilter === 'All' || p.skillLevel?.toLowerCase() === skillFilter.toLowerCase();
+    const matchesGender = genderFilter === 'All' || p.gender?.toLowerCase() === genderFilter.toLowerCase();
+    const matchesSearch = searchQuery === '' || 
+      p.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.wissenId.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesSkill && matchesGender && matchesSearch;
+  });
 
   // Helper to normalize strings for comparison
   const normalizeName = (name) => {
@@ -512,7 +512,7 @@ const PlayersPage = () => {
       <div className="glass-panel" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
         
         {/* Search */}
-        <div style={{ position: 'relative', width: '100%', maxWidth: '300px' }}>
+        <div style={{ position: 'relative', width: '100%', maxWidth: '240px' }}>
           <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)', display: 'flex' }}>
             <Search size={16} />
           </span>
@@ -526,28 +526,55 @@ const PlayersPage = () => {
           />
         </div>
 
-        {/* Skill Filters */}
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', fontWeight: '600', textTransform: 'uppercase', marginRight: '6px' }}>
-            Filter Skill:
-          </span>
-          {['All', 'Beginner', 'Intermediate', 'Advanced'].map((lvl) => (
-            <button
-              key={lvl}
-              onClick={() => setSkillFilter(lvl)}
-              className="btn"
-              style={{
-                padding: '6px 12px',
-                fontSize: '0.8rem',
-                borderRadius: '6px',
-                background: skillFilter === lvl ? 'var(--color-primary)' : 'rgba(255, 255, 255, 0.04)',
-                color: skillFilter === lvl ? '#000' : 'var(--color-text-main)',
-                border: skillFilter === lvl ? 'none' : '1px solid var(--border-color)'
-              }}
-            >
-              {lvl}
-            </button>
-          ))}
+        {/* Filters Wrapper */}
+        <div style={{ display: 'flex', gap: '20px', alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Gender Filters */}
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', fontWeight: '600', textTransform: 'uppercase', marginRight: '4px' }}>
+              Gender:
+            </span>
+            {['All', 'Male', 'Female'].map((gen) => (
+              <button
+                key={gen}
+                onClick={() => setGenderFilter(gen)}
+                className="btn"
+                style={{
+                  padding: '6px 12px',
+                  fontSize: '0.8rem',
+                  borderRadius: '6px',
+                  background: genderFilter === gen ? 'var(--color-primary)' : 'rgba(255, 255, 255, 0.04)',
+                  color: genderFilter === gen ? '#000' : 'var(--color-text-main)',
+                  border: genderFilter === gen ? 'none' : '1px solid var(--border-color)'
+                }}
+              >
+                {gen}
+              </button>
+            ))}
+          </div>
+
+          {/* Skill Filters */}
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', fontWeight: '600', textTransform: 'uppercase', marginRight: '4px' }}>
+              Skill:
+            </span>
+            {['All', 'Beginner', 'Intermediate', 'Advanced'].map((lvl) => (
+              <button
+                key={lvl}
+                onClick={() => setSkillFilter(lvl)}
+                className="btn"
+                style={{
+                  padding: '6px 12px',
+                  fontSize: '0.8rem',
+                  borderRadius: '6px',
+                  background: skillFilter === lvl ? 'var(--color-primary)' : 'rgba(255, 255, 255, 0.04)',
+                  color: skillFilter === lvl ? '#000' : 'var(--color-text-main)',
+                  border: skillFilter === lvl ? 'none' : '1px solid var(--border-color)'
+                }}
+              >
+                {lvl}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

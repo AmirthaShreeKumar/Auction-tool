@@ -25,6 +25,12 @@ const TeamsPage = () => {
   const [activeRosterTeam, setActiveRosterTeam] = useState(null);
   const [playerToRelease, setPlayerToRelease] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
+  const [genderFilter, setGenderFilter] = useState('all');
+
+  // Reset gender filter when switching teams
+  useEffect(() => {
+    setGenderFilter('all');
+  }, [activeRosterTeam?.id]);
 
   // Dismiss toast on any click anywhere on the page
   useEffect(() => {
@@ -230,6 +236,13 @@ const TeamsPage = () => {
   };
 
   const currentActiveTeam = cityTeams.find(t => t.id === activeRosterTeam?.id) || cityTeams[0] || null;
+
+  const filteredPlayers = currentActiveTeam?.players
+    ? currentActiveTeam.players.filter(p => {
+        if (genderFilter === 'all') return true;
+        return p.gender?.toLowerCase() === genderFilter.toLowerCase();
+      })
+    : [];
 
   return (
     <div>
@@ -464,10 +477,53 @@ const TeamsPage = () => {
               </div>
 
               {/* Roster / Player Cards */}
-              <div style={{ flex: 1 }}>
-                <h4 style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>
-                  Roster Players ({currentActiveTeam.players.length})
-                </h4>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center', 
+                  marginBottom: '16px',
+                  flexWrap: 'wrap',
+                  gap: '12px'
+                }}>
+                  <h4 style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
+                    Roster Players ({filteredPlayers.length} / {currentActiveTeam.players.length})
+                  </h4>
+
+                  {/* Gender Filter Pills */}
+                  <div style={{ 
+                    display: 'flex', 
+                    background: 'rgba(255, 255, 255, 0.03)', 
+                    padding: '2px', 
+                    borderRadius: '8px', 
+                    border: '1px solid var(--border-color)' 
+                  }}>
+                    {['all', 'male', 'female'].map((g) => {
+                      const isActive = genderFilter === g;
+                      const activeBg = currentActiveTeam.themeColor || '#3b82f6';
+                      return (
+                        <button
+                          key={g}
+                          onClick={() => setGenderFilter(g)}
+                          style={{
+                            padding: '4px 12px',
+                            fontSize: '0.75rem',
+                            fontWeight: '600',
+                            borderRadius: '6px',
+                            border: 'none',
+                            background: isActive ? activeBg : 'transparent',
+                            color: isActive ? '#fff' : 'var(--color-text-muted)',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                            textTransform: 'capitalize'
+                          }}
+                        >
+                          {g}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
                 {currentActiveTeam.players.length === 0 ? (
                   <div style={{ 
@@ -485,6 +541,22 @@ const TeamsPage = () => {
                     <Eye size={40} style={{ opacity: 0.2 }} />
                     <span>No players acquired yet</span>
                   </div>
+                ) : filteredPlayers.length === 0 ? (
+                  <div style={{ 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    gap: '12px', 
+                    padding: '60px 20px', 
+                    background: 'rgba(255,255,255,0.01)', 
+                    borderRadius: '12px', 
+                    border: '1px dashed var(--border-color)', 
+                    color: 'var(--color-text-muted)' 
+                  }}>
+                    <Eye size={40} style={{ opacity: 0.2 }} />
+                    <span>No {genderFilter} players found in this squad</span>
+                  </div>
                 ) : (
                   <div style={{ 
                     display: 'grid', 
@@ -494,7 +566,7 @@ const TeamsPage = () => {
                     overflowY: 'auto', 
                     paddingRight: '12px' 
                   }}>
-                    {currentActiveTeam.players.map((p) => (
+                    {filteredPlayers.map((p) => (
                       <div key={p.id} style={{
                         background: 'rgba(255,255,255,0.02)',
                         border: '1px solid var(--border-color)',
