@@ -1,6 +1,7 @@
 import React, { useContext, useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { AppContext } from '../context/AppContext';
+import { apiFetch } from '../api/api';
 import PlayerPhoto from '../components/PlayerPhoto';
 import { Plus, UserPlus, Filter, X, Search, Upload, Camera, Trash2, Pencil } from 'lucide-react';
 
@@ -326,7 +327,9 @@ const PlayersPage = () => {
       fullName,
       email,
       mobileNumber,
-      imageUrl: photoFile ? '' : imageUrl,
+      imageUrl: photoFile
+        ? ''
+        : (imageUrl || (editingPlayer ? (editingPlayer.imageUrl || '') : '')),
       gender,
       skillLevel,
       yearsOfExperience: yearsOfExperience ? yearsOfExperience.toString() : "",
@@ -336,6 +339,7 @@ const PlayersPage = () => {
       matchesWon: showStats && matchesWon !== '' ? parseInt(matchesWon) : null,
       matchesLost: showStats && matchesLost !== '' ? parseInt(matchesLost) : null,
     };
+
 
     try {
       let savedPlayer;
@@ -408,23 +412,31 @@ const PlayersPage = () => {
     setImportResult(null);
   };
 
-  const handleEditClick = (player) => {
-    setEditingPlayer(player);
-    setWissenId(player.wissenId);
-    setFullName(player.fullName);
-    setEmail(player.email);
-    setMobileNumber(player.mobileNumber || '');
+  const handleEditClick = async (player) => {
+    // Fetch full player record (includes imageUrl which is excluded from the list endpoint)
+    let fullPlayer = player;
+    try {
+      fullPlayer = await apiFetch(`/api/${city}/players/${player.id}`);
+    } catch {
+      // Fall back to the slim player object if the fetch fails
+    }
+
+    setEditingPlayer(fullPlayer);
+    setWissenId(fullPlayer.wissenId);
+    setFullName(fullPlayer.fullName);
+    setEmail(fullPlayer.email);
+    setMobileNumber(fullPlayer.mobileNumber || '');
     // If existing image is a data URI (uploaded), show blank URL field; image is already stored
-    setImageUrl(player.imageUrl && !player.imageUrl.startsWith('data:') ? player.imageUrl : '');
+    setImageUrl(fullPlayer.imageUrl && !fullPlayer.imageUrl.startsWith('data:') ? fullPlayer.imageUrl : '');
     clearPhoto();
-    setGender(player.gender);
-    setSkillLevel(player.skillLevel);
-    setYearsOfExperience(player.yearsOfExperience);
-    setBasePrice(player.basePrice);
-    setMatchesPlayed(player.stats ? player.stats.matchesPlayed : '');
-    setMatchesWon(player.stats ? player.stats.matchesWon : '');
-    setMatchesLost(player.stats ? player.stats.matchesLost : '');
-    setShowStats(!!player.stats);
+    setGender(fullPlayer.gender);
+    setSkillLevel(fullPlayer.skillLevel);
+    setYearsOfExperience(fullPlayer.yearsOfExperience);
+    setBasePrice(fullPlayer.basePrice);
+    setMatchesPlayed(fullPlayer.stats ? fullPlayer.stats.matchesPlayed : '');
+    setMatchesWon(fullPlayer.stats ? fullPlayer.stats.matchesWon : '');
+    setMatchesLost(fullPlayer.stats ? fullPlayer.stats.matchesLost : '');
+    setShowStats(!!fullPlayer.stats);
     setShowAddModal(true);
   };
 

@@ -322,8 +322,6 @@ export const AppProvider = ({ children }) => {
 
   // ---- Auction queue ----
   const getAuctionQueue = useCallback(() => {
-    console.log("[WBPL Debug] getAuctionQueue called. filters:", { auctionSkillFilter, auctionGenderFilter }, "city:", city);
-    console.log("[WBPL Debug] players list:", players.map(p => ({ name: p.fullName, status: p.status, skill: p.skillLevel, gender: p.gender })));
     let cityPlayers = players.filter(
       p => p.location?.toLowerCase() === city?.toLowerCase() && p.status === 'UNSOLD'
     );

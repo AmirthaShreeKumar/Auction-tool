@@ -14,7 +14,11 @@ import {
   Coins,
   PlayCircle,
   SkipForward,
-  ArrowLeft
+  ArrowLeft,
+  Clock,
+  Feather,
+  Trophy,
+  ShieldAlert
 } from 'lucide-react';
 
 const AuctionPage = () => {
@@ -116,9 +120,6 @@ const AuctionPage = () => {
     setImgError(false);
   }, [activePlayer]);
 
-  useEffect(() => {
-    console.log("[WBPL Debug] toastMessage changed:", toastMessage);
-  }, [toastMessage]);
 
   // Filter teams by city
   const cityTeams = teams.filter(t => t.location.toLowerCase() === city.toLowerCase());
@@ -140,30 +141,23 @@ const AuctionPage = () => {
   };
 
   const handleMarkSoldToTeam = async (teamId, teamName) => {
-    console.log("[WBPL Debug] handleMarkSoldToTeam called with:", { teamId, teamName });
     setBiddingError('');
     const playerSold = activePlayer?.fullName;
     const amountSold = currentBid;
 
-    console.log("[WBPL Debug] Calling markSold for:", { playerSold, amountSold });
     const res = await markSold(teamId, (errorMsg) => {
-      console.log("[WBPL Debug] Background markSold failed:", errorMsg);
       setToastMessage({ text: `Failed to sell ${playerSold}: ${errorMsg}`, type: 'error' });
       setTimeout(() => {
         setToastMessage(null);
       }, 5000);
     });
-    console.log("[WBPL Debug] markSold response:", res);
 
     if (res && !res.success) {
-      console.log("[WBPL Debug] markSold failed:", res.message);
       setBiddingError(res.message);
     } else {
-      console.log("[WBPL Debug] markSold succeeded, setting toast...");
       setShowTeamModal(false);
       setToastMessage({ text: `${playerSold} sold to ${teamName} for ${amountSold.toLocaleString()} pts`, type: 'success' });
       setTimeout(() => {
-        console.log("[WBPL Debug] Timeout reached, clearing toast");
         setToastMessage(null);
       }, 3000);
     }
@@ -500,7 +494,7 @@ const AuctionPage = () => {
         <div style={{ flex: '1.1 1 50%', minWidth: '550px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {activePlayer ? (
             <div className="glass-panel" style={{
-              padding: '36px',
+              padding: '24px 28px',
               border: '1px solid var(--border-color)',
               boxShadow: '0 15px 40px rgba(0,0,0,0.5)',
               position: 'relative',
@@ -508,7 +502,7 @@ const AuctionPage = () => {
             }}>
 
               {/* Corner Watermark */}
-              <Gavel size={200} style={{
+              <Gavel size={160} style={{
                 position: 'absolute',
                 bottom: '-20px',
                 right: '-20px',
@@ -518,74 +512,116 @@ const AuctionPage = () => {
                 pointerEvents: 'none'
               }} />
 
-              {/* Player Information Frame */}
-              <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap' }}>
+              {/* Player Information Frame — photo left, details right */}
+              <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
 
                 {/* Player Profile Photo */}
                 <div style={{
-                  width: '180px',
-                  height: '180px',
-                  borderRadius: '24px',
+                  width: '160px',
+                  height: '160px',
+                  flexShrink: 0,
+                  borderRadius: '14px',
                   background: 'linear-gradient(135deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.08) 100%)',
                   border: '1px solid var(--border-color)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   color: getSkillBadgeColor(activePlayer.skillLevel),
-                  boxShadow: '0 0 20px rgba(255,255,255,0.02)',
                   overflow: 'hidden'
                 }}>
                   {activePlayer.imageUrl && !imgError ? (
                     <img src={activePlayer.imageUrl} alt={activePlayer.fullName} onError={() => setImgError(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
-                    <PlayerPhoto playerId={activePlayer.id} playerName={activePlayer.fullName} size="180px" borderRadius="24px" style={{ border: 'none', background: 'transparent' }} />
+                    <PlayerPhoto playerId={activePlayer.id} playerName={activePlayer.fullName} size="160px" borderRadius="14px" style={{ border: 'none', background: 'transparent' }} />
                   )}
                 </div>
 
                 {/* Player details */}
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                    <span style={{
-                      fontSize: '0.9rem',
-                      background: 'rgba(255,255,255,0.06)',
-                      padding: '4px 12px',
-                      borderRadius: '4px',
-                      color: 'white',
-                      fontWeight: '700'
-                    }}>{activePlayer.wissenId}</span>
-                    <span style={{
-                      fontSize: '0.9rem',
-                      background: 'rgba(255,255,255,0.05)',
-                      color: getSkillBadgeColor(activePlayer.skillLevel),
-                      border: `1px solid ${getSkillBadgeColor(activePlayer.skillLevel)}33`,
-                      padding: '3px 12px',
-                      borderRadius: '4px',
-                      fontWeight: '700',
-                      textTransform: 'uppercase'
-                    }}>{activePlayer.skillLevel}</span>
-                  </div>
-
-                  <h3 style={{ fontSize: '2.8rem', fontWeight: '800', color: 'white', marginTop: '8px', lineHeight: '1.1' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  {/* Name — large */}
+                  <h3 style={{ fontSize: 'clamp(1.4rem, 2.2vw, 2.1rem)', fontWeight: '800', color: 'white', margin: '0 0 6px', lineHeight: '1.15', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {activePlayer.fullName}
                   </h3>
 
-                  <div style={{ display: 'flex', gap: '20px', marginTop: '12px', color: 'var(--color-text-muted)', fontSize: '1rem', flexWrap: 'wrap' }}>
-                    <span>Gender: <strong style={{ color: 'white' }}>{activePlayer.gender}</strong></span>
-                    <span>&bull;</span>
-                    <span>Experience: <strong style={{ color: 'white' }}>{activePlayer.yearsOfExperience !== null && activePlayer.yearsOfExperience !== undefined && activePlayer.yearsOfExperience !== '' ? `${activePlayer.yearsOfExperience} Year${String(activePlayer.yearsOfExperience) !== '1' ? 's' : ''}` : '-'}</strong></span>
-                    <span>&bull;</span>
-                    <span>Email: <strong style={{ color: 'white' }}>{activePlayer.email}</strong></span>
+                  {/* WT-ID + Skill badge */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                    <span style={{
+                      fontSize: '0.78rem',
+                      background: 'rgba(255,255,255,0.08)',
+                      padding: '3px 10px',
+                      borderRadius: '5px',
+                      color: 'white',
+                      fontWeight: '700',
+                      letterSpacing: '0.5px'
+                    }}>{activePlayer.wissenId}</span>
+                    <span style={{
+                      fontSize: '0.78rem',
+                      background: `${getSkillBadgeColor(activePlayer.skillLevel)}18`,
+                      color: getSkillBadgeColor(activePlayer.skillLevel),
+                      border: `1px solid ${getSkillBadgeColor(activePlayer.skillLevel)}55`,
+                      padding: '3px 10px',
+                      borderRadius: '5px',
+                      fontWeight: '700',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px'
+                    }}>{activePlayer.skillLevel}</span>
                   </div>
 
-                  {activePlayer.stats && (
-                    <div style={{ display: 'flex', gap: '20px', marginTop: '12px', background: 'rgba(255,255,255,0.02)', padding: '10px 16px', borderRadius: '8px', border: '1px solid var(--border-color)', width: 'fit-content' }}>
-                      <div><span style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>Matches Played</span><div style={{ fontWeight: '700', fontSize: '1.2rem', color: 'white' }}>{activePlayer.stats.matchesPlayed}</div></div>
-                      <div><span style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>Won</span><div style={{ fontWeight: '700', fontSize: '1.2rem', color: 'var(--color-success)' }}>{activePlayer.stats.matchesWon}</div></div>
-                      <div><span style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>Lost</span><div style={{ fontWeight: '700', fontSize: '1.2rem', color: 'var(--color-danger)' }}>{activePlayer.stats.matchesLost}</div></div>
-                    </div>
-                  )}
+                  {/* Gender — own line with icon */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '7px', color: 'var(--color-text-muted)', fontSize: '0.85rem', marginBottom: '5px' }}>
+                    <User size={13} style={{ flexShrink: 0, opacity: 0.7 }} />
+                    <span>Gender: <strong style={{ color: 'white' }}>{activePlayer.gender}</strong></span>
+                  </div>
+
+                  {/* Experience — own line with icon */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '7px', color: 'var(--color-text-muted)', fontSize: '0.85rem', marginBottom: '5px' }}>
+                    <Clock size={13} style={{ flexShrink: 0, opacity: 0.7 }} />
+                    <span>Experience: <strong style={{ color: 'white' }}>{activePlayer.yearsOfExperience !== null && activePlayer.yearsOfExperience !== undefined && activePlayer.yearsOfExperience !== '' ? `${activePlayer.yearsOfExperience} Year${String(activePlayer.yearsOfExperience) !== '1' ? 's' : ''}` : '-'}</strong></span>
+                  </div>
+
                 </div>
               </div>
+
+              {/* Stats Row — full width, below photo+details */}
+              {activePlayer.stats && (
+                <div style={{
+                  display: 'flex',
+                  gap: '12px',
+                  marginTop: '14px',
+                  padding: '12px 16px',
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '10px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
+                    <div style={{ width: '34px', height: '34px', borderRadius: '8px', background: 'rgba(139,92,246,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Feather size={16} style={{ color: '#a78bfa' }} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Matches Played</div>
+                      <div style={{ fontSize: '1.4rem', fontWeight: '800', color: 'white', lineHeight: 1 }}>{activePlayer.stats.matchesPlayed}</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
+                    <div style={{ width: '34px', height: '34px', borderRadius: '8px', background: 'rgba(16,185,129,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Trophy size={16} style={{ color: 'var(--color-success)' }} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Won</div>
+                      <div style={{ fontSize: '1.4rem', fontWeight: '800', color: 'var(--color-success)', lineHeight: 1 }}>{activePlayer.stats.matchesWon}</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
+                    <div style={{ width: '34px', height: '34px', borderRadius: '8px', background: 'rgba(239,68,68,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <ShieldAlert size={16} style={{ color: 'var(--color-danger)' }} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Lost</div>
+                      <div style={{ fontSize: '1.4rem', fontWeight: '800', color: 'var(--color-danger)', lineHeight: 1 }}>{activePlayer.stats.matchesLost}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Bidding Grid */}
               <div style={{
@@ -597,27 +633,27 @@ const AuctionPage = () => {
                 borderTop: '1px solid var(--border-color)'
               }}>
                 {/* Base price card */}
-                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '16px 20px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-                  <span style={{ fontSize: '0.9rem', textTransform: 'uppercase', color: 'var(--color-text-muted)', fontWeight: '600' }}>Base Price</span>
-                  <div style={{ fontSize: '2rem', fontWeight: '800', color: 'white', marginTop: '4px' }}>
-                    {activePlayer.basePrice.toLocaleString()} <span style={{ fontSize: '1rem', color: 'var(--color-text-muted)', fontWeight: 'normal' }}>pts</span>
+                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px 16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                  <span style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--color-text-muted)', fontWeight: '600' }}>Base Price</span>
+                  <div style={{ fontSize: '1.6rem', fontWeight: '800', color: 'white', marginTop: '2px' }}>
+                    {activePlayer.basePrice.toLocaleString()} <span style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)', fontWeight: 'normal' }}>pts</span>
                   </div>
                 </div>
 
                 {/* Current Bid Display */}
                 <div className={animateBid ? 'animate-bid' : ''} style={{
                   background: 'rgba(212, 252, 52, 0.04)',
-                  padding: '16px 20px',
+                  padding: '10px 16px',
                   borderRadius: '12px',
                   border: '1px solid rgba(212, 252, 52, 0.25)',
                   transition: 'all 0.1s ease'
                 }}>
-                  <span style={{ fontSize: '0.9rem', textTransform: 'uppercase', color: 'var(--color-primary)', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <TrendingUp size={14} />
+                  <span style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--color-primary)', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <TrendingUp size={13} />
                     Current Bid
                   </span>
-                  <div style={{ fontSize: '2.6rem', fontWeight: '900', color: 'var(--color-primary)', marginTop: '2px', fontFamily: 'var(--font-display)' }}>
-                    {currentBid.toLocaleString()} <span style={{ fontSize: '1.1rem', color: 'var(--color-text-muted)', fontWeight: 'normal' }}>pts</span>
+                  <div style={{ fontSize: '2rem', fontWeight: '900', color: 'var(--color-primary)', marginTop: '2px', fontFamily: 'var(--font-display)' }}>
+                    {currentBid.toLocaleString()} <span style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)', fontWeight: 'normal' }}>pts</span>
                   </div>
                 </div>
               </div>
@@ -753,25 +789,21 @@ const AuctionPage = () => {
         </div>
 
         {/* Right Column: Team Roster Status Table */}
-        <div style={{ flex: '0.9 1 45%', minWidth: '500px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div className="glass-panel" style={{ padding: '24px 30px', display: 'flex', flexDirection: 'column' }}>
-            <h4 style={{ fontSize: '1.2rem', color: 'white', marginBottom: '14px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Users size={20} style={{ color: 'var(--color-primary)' }} />
-              Team Roster Status ({cityTeams.length})
-            </h4>
+        <div style={{ flex: '0.9 1 45%', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
             <div className="custom-table-container" style={{ margin: 0, border: 'none', background: 'transparent' }}>
-              <table className="custom-table" style={{ width: '100%' }}>
+              <table className="custom-table" style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse' }}>
                 <thead>
-                  <tr>
-                    <th style={{ padding: '12px 14px', fontSize: '0.88rem' }}>Team</th>
-                    <th style={{ padding: '12px 14px', fontSize: '0.88rem', textAlign: 'right' }}>Purse</th>
-                    <th style={{ padding: '12px 14px', fontSize: '0.88rem', textAlign: 'center' }}>Female</th>
-                    <th style={{ padding: '12px 14px', fontSize: '0.88rem', textAlign: 'center' }}>Beginner</th>
-                    <th style={{ padding: '12px 14px', fontSize: '0.88rem', textAlign: 'center' }}>Players</th>
+                  <tr style={{ background: 'rgba(255,255,255,0.04)', borderBottom: '2px solid var(--color-primary)' }}>
+                    <th style={{ padding: '9px 10px 10px', fontSize: '0.82rem', letterSpacing: '0.09em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.85)', fontWeight: '800', width: '40%', textAlign: 'left' }}>Team</th>
+                    <th style={{ padding: '9px 8px 10px', fontSize: '0.82rem', letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--color-primary)', fontWeight: '800', width: '20%', textAlign: 'right' }}>Purse</th>
+                    <th style={{ padding: '9px 4px 10px', fontSize: '0.82rem', letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--color-success)', fontWeight: '800', width: '13%', textAlign: 'center' }}>F</th>
+                    <th style={{ padding: '9px 4px 10px', fontSize: '0.82rem', letterSpacing: '0.09em', textTransform: 'uppercase', color: '#f59e0b', fontWeight: '800', width: '13%', textAlign: 'center' }}>B</th>
+                    <th style={{ padding: '9px 4px 10px', fontSize: '0.82rem', letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--color-secondary)', fontWeight: '800', width: '14%', textAlign: 'center' }}>T</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {cityTeams.map((t) => {
+                  {cityTeams.map((t, idx) => {
                     const femaleCount = t.femalePlayers || 0;
                     const totalCount = t.totalPlayers || 0;
                     const beginnerCount = t.beginnerPlayers || 0;
@@ -779,68 +811,69 @@ const AuctionPage = () => {
                     const minBeginners = businessRules.minBeginners || 2;
                     const maxPlayers = businessRules.teamSizeLimit || 10;
 
-                    const femaleRemaining = Math.max(0, minFemales - femaleCount);
-                    const beginnerRemaining = Math.max(0, minBeginners - beginnerCount);
-
                     const requiresFemales = femaleCount < minFemales;
                     const requiresBeginners = beginnerCount < minBeginners;
 
-                    const spentPurse = businessRules.purseLimit - t.purseRemaining;
-                    const spentPct = (spentPurse / businessRules.purseLimit) * 100;
                     const isPurseCritical = t.purseRemaining <= 15000;
                     const isPurseWarning = t.purseRemaining > 15000 && t.purseRemaining <= 30000;
 
+                    const purseK = t.purseRemaining >= 1000
+                      ? `${Math.round(t.purseRemaining / 1000)}K`
+                      : t.purseRemaining.toString();
+
                     return (
-                      <tr key={t.id || t.teamName}>
-                        <td style={{ padding: '10px 14px', fontSize: '0.92rem', fontWeight: '700', color: t.themeColor || 'white', whiteSpace: 'nowrap' }}>
+                      <tr key={t.id || t.teamName} style={{ background: idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)' }}>
+                        <td style={{ padding: '7px 10px', fontSize: '1rem', fontWeight: '700', color: t.themeColor || 'white', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {t.teamName}
                         </td>
                         <td style={{
-                          padding: '10px 14px',
-                          fontSize: '0.92rem',
+                          padding: '7px 8px',
+                          fontSize: '1rem',
                           textAlign: 'right',
                           fontWeight: '700',
                           color: isPurseCritical ? 'var(--color-danger)' : isPurseWarning ? 'var(--color-warning)' : 'var(--color-success)'
                         }}>
-                          {t.purseRemaining.toLocaleString()}
+                          {purseK}
                         </td>
-                        <td style={{ padding: '10px 14px', fontSize: '0.92rem', textAlign: 'center' }}>
+                        <td style={{ padding: '7px 4px', textAlign: 'center' }}>
                           <span style={{
+                            display: 'inline-block',
+                            minWidth: '26px',
                             fontWeight: '700',
+                            fontSize: '1rem',
                             color: requiresFemales ? 'var(--color-warning)' : 'var(--color-success)',
-                            background: requiresFemales ? 'rgba(245, 158, 11, 0.08)' : 'rgba(16, 185, 129, 0.08)',
-                            padding: '3px 10px',
-                            borderRadius: '12px',
-                            border: requiresFemales ? '1px solid rgba(245, 158, 11, 0.2)' : '1px solid rgba(16, 185, 129, 0.2)',
-                            fontSize: '0.85rem'
+                            background: requiresFemales ? 'rgba(245,158,11,0.1)' : 'rgba(16,185,129,0.1)',
+                            padding: '1px 6px',
+                            borderRadius: '10px',
+                            border: requiresFemales ? '1px solid rgba(245,158,11,0.25)' : '1px solid rgba(16,185,129,0.25)',
                           }}>
                             {femaleCount}
                           </span>
                         </td>
-                        <td style={{ padding: '10px 14px', fontSize: '0.92rem', textAlign: 'center' }}>
+                        <td style={{ padding: '7px 4px', textAlign: 'center' }}>
                           <span style={{
+                            display: 'inline-block',
+                            minWidth: '26px',
                             fontWeight: '700',
+                            fontSize: '1rem',
                             color: requiresBeginners ? 'var(--color-warning)' : 'var(--color-success)',
-                            background: requiresBeginners ? 'rgba(245, 158, 11, 0.08)' : 'rgba(16, 185, 129, 0.08)',
-                            padding: '3px 10px',
-                            borderRadius: '12px',
-                            border: requiresBeginners ? '1px solid rgba(245, 158, 11, 0.2)' : '1px solid rgba(16, 185, 129, 0.2)',
-                            fontSize: '0.85rem'
+                            background: requiresBeginners ? 'rgba(245,158,11,0.1)' : 'rgba(16,185,129,0.1)',
+                            padding: '1px 6px',
+                            borderRadius: '10px',
+                            border: requiresBeginners ? '1px solid rgba(245,158,11,0.25)' : '1px solid rgba(16,185,129,0.25)',
                           }}>
                             {beginnerCount}
                           </span>
                         </td>
-                        <td style={{ padding: '10px 14px', fontSize: '0.92rem', textAlign: 'center', fontWeight: '600' }}>
-                          <span style={{ color: totalCount === maxPlayers ? 'var(--color-success)' : 'white' }}>
-                            {totalCount}/{maxPlayers}
-                          </span>
+                        <td style={{ padding: '7px 4px', fontSize: '1rem', textAlign: 'center', fontWeight: '600', color: totalCount === maxPlayers ? 'var(--color-success)' : 'white' }}>
+                          {totalCount}/{maxPlayers}
                         </td>
                       </tr>
                     );
                   })}
                   {cityTeams.length === 0 && (
                     <tr>
-                      <td colSpan="5" style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem', textAlign: 'center', padding: '20px' }}>
+                      <td colSpan="5" style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', textAlign: 'center', padding: '20px' }}>
                         No teams registered for this city yet.
                       </td>
                     </tr>
