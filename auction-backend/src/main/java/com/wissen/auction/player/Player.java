@@ -83,6 +83,10 @@ public class Player {
     @OneToOne(mappedBy = "player", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private PlayerStats stats;
 
+    @org.hibernate.annotations.UpdateTimestamp
+    @Column(name = "updated_at")
+    private java.time.LocalDateTime updatedAt;
+
     // ---- Enums ----
 
     public enum Gender { Male, Female }

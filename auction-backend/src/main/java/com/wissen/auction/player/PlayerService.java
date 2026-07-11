@@ -41,7 +41,13 @@ public class PlayerService {
     // ---- READ ----
 
     @Transactional(readOnly = true)
-    public List<PlayerDTO> getPlayersByCity(String city) {
+    public List<PlayerDTO> getPlayersByCity(String city, java.time.LocalDateTime since) {
+        if (since != null) {
+            return playerRepository.findByLocationIgnoreCaseAndUpdatedAtGreaterThanEqual(city, since)
+                    .stream()
+                    .map(PlayerDTO::from)
+                    .collect(Collectors.toList());
+        }
         return playerRepository.findSlimByLocationIgnoreCase(city)
                 .stream()
                 .map(PlayerDTO::from)   // ultra slim response

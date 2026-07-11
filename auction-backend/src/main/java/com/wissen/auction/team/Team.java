@@ -60,6 +60,10 @@ public class Team {
     @Builder.Default
     private List<Player> players = new ArrayList<>();
 
+    @org.hibernate.annotations.UpdateTimestamp
+    @Column(name = "updated_at")
+    private java.time.LocalDateTime updatedAt;
+
     public Integer getPurseRemaining() {
         if (this.players == null || !org.hibernate.Hibernate.isInitialized(this.players)) {
             return this.purseRemaining;

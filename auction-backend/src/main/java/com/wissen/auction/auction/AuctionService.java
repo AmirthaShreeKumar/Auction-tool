@@ -54,7 +54,7 @@ public class AuctionService {
 
         PlayerDTO activePlayer = queueDTOs.isEmpty() ? null : queueDTOs.get(0);
 
-        List<TeamDTO> teamDTOs = teamService.getTeamsByCity(city);
+        List<TeamDTO> teamDTOs = teamService.getTeamsByCity(city, null);
 
         return AuctionStateDTO.builder()
                 .activePlayer(activePlayer)

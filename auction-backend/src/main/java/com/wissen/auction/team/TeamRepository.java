@@ -15,6 +15,9 @@ public interface TeamRepository extends JpaRepository<Team, Long> {
     @Query("SELECT t.id AS id, t.teamName AS teamName, t.ownerName AS ownerName, t.themeColor AS themeColor, t.location AS location, t.purseRemaining AS purseRemaining, LENGTH(t.logoSvg) AS logoSvgHash, LENGTH(t.logoUrl) AS logoUrlHash FROM Team t WHERE LOWER(t.location) = LOWER(:city)")
     List<TeamSlimView> findByLocationIgnoreCaseExcludingLogo(@Param("city") String city);
 
+    @Query("SELECT t.id AS id, t.teamName AS teamName, t.ownerName AS ownerName, t.themeColor AS themeColor, t.location AS location, t.purseRemaining AS purseRemaining, LENGTH(t.logoSvg) AS logoSvgHash, LENGTH(t.logoUrl) AS logoUrlHash FROM Team t WHERE LOWER(t.location) = LOWER(:city) AND t.updatedAt >= :timestamp")
+    List<TeamSlimView> findByLocationIgnoreCaseAndUpdatedAtGreaterThanEqualExcludingLogo(@Param("city") String city, @Param("timestamp") java.time.LocalDateTime timestamp);
+
     @Query("SELECT DISTINCT t FROM Team t LEFT JOIN FETCH t.players WHERE LOWER(t.location) = LOWER(:city)")
     List<Team> findByLocationWithPlayers(@Param("city") String city);
 
@@ -30,4 +33,7 @@ public interface TeamRepository extends JpaRepository<Team, Long> {
     @Modifying(clearAutomatically = true)
     @Query("DELETE FROM Team t WHERE t.id = :id")
     void deleteTeamById(@Param("id") Long id);
+
+    @Query("SELECT COUNT(t) FROM Team t WHERE LOWER(t.location) = LOWER(:city)")
+    long countByCityLower(@Param("city") String city);
 }

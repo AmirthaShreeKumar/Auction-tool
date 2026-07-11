@@ -56,6 +56,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/*/teams/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/*/auction").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/*/auction/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/*/data-version").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/*/statistics").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/*/statistics/**").permitAll()
                 // Admin-only write operations

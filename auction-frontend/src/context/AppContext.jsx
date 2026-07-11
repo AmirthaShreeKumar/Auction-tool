@@ -14,19 +14,19 @@ export const AppContext = createContext();
 
 export const AppProvider = ({ children }) => {
   // Auth state — token is in HttpOnly cookie, never in JS
-  const [city, setCity]     = useState(() => localStorage.getItem('wbp_city')  || '');
-  const [role, setRole]     = useState(() => localStorage.getItem('wbp_role')  || '');
+  const [city, setCity] = useState(() => localStorage.getItem('wbp_city') || '');
+  const [role, setRole] = useState(() => localStorage.getItem('wbp_role') || '');
   const [username, setUsername] = useState(() => localStorage.getItem('wbp_username') || '');
 
   // Data state
   const [players, setPlayers] = useState([]);
-  const [teams, setTeams]     = useState([]);
+  const [teams, setTeams] = useState([]);
 
   // Auction UI state (managed client-side for performance)
   const [currentAuctionIndex, setCurrentAuctionIndex] = useState(0);
-  const [currentBid, setCurrentBid]                   = useState(0);
-  const [bidHistory, setBidHistory]                   = useState([]); // Store local bid increments for revert
-  const [highestBidderTeam, setHighestBidderTeam]     = useState(null); // No longer needed strictly for UI during bid, but kept for markSold if needed
+  const [currentBid, setCurrentBid] = useState(0);
+  const [bidHistory, setBidHistory] = useState([]); // Store local bid increments for revert
+  const [highestBidderTeam, setHighestBidderTeam] = useState(null); // No longer needed strictly for UI during bid, but kept for markSold if needed
   const [highestBidderTeamId, setHighestBidderTeamId] = useState(null);
 
   // Auction Filters — reset auction index when filters change so we start
@@ -55,11 +55,15 @@ export const AppProvider = ({ children }) => {
   useEffect(() => { localStorage.setItem('wbp_selectedGender', selectedGender); }, [selectedGender]);
   useEffect(() => { localStorage.setItem('wbp_selectedSkill', selectedSkill); }, [selectedSkill]);
 
-  // ---- Fetch helpers (city passed explicitly to avoid stale closure issues) ----
-  const fetchPlayersForCity = useCallback(async (targetCity) => {
+  // ---- Cache-first data fetching ----
+  // On page load: instantly hydrate from IndexedDB, then verify with a tiny
+  // version check (~50 bytes). Only re-fetch the full payload if data changed.
+
+  const fetchPlayersForCity = useCallback(async (targetCity, since = null) => {
     if (!targetCity) return [];
     try {
-      const data = await apiFetch(`/api/${targetCity}/players`);
+      const url = since ? `/api/${targetCity}/players?since=${encodeURIComponent(since)}` : `/api/${targetCity}/players`;
+      const data = await apiFetch(url);
       return Array.isArray(data) ? data : [];
     } catch (err) {
       console.error('Failed to load players:', err.message);
@@ -67,10 +71,11 @@ export const AppProvider = ({ children }) => {
     }
   }, []);
 
-  const fetchTeamsForCity = useCallback(async (targetCity) => {
+  const fetchTeamsForCity = useCallback(async (targetCity, since = null) => {
     if (!targetCity) return [];
     try {
-      const data = await apiFetch(`/api/${targetCity}/teams`);
+      const url = since ? `/api/${targetCity}/teams?since=${encodeURIComponent(since)}` : `/api/${targetCity}/teams`;
+      const data = await apiFetch(url);
       if (Array.isArray(data)) {
         await Promise.all(data.map(async (team) => {
           if (team.logoSvgHash || team.logoUrlHash) {
@@ -82,7 +87,6 @@ export const AppProvider = ({ children }) => {
                 team.logoSvg = parsed.logoSvg;
                 team.logoUrl = parsed.logoUrl;
               } catch (e) {
-                // Handle legacy cache strings
                 team.logoSvg = cachedLogo;
               }
             } else {
@@ -107,37 +111,129 @@ export const AppProvider = ({ children }) => {
     }
   }, []);
 
+  /**
+   * Core cache-first loader: hydrates from IndexedDB immediately, then checks
+   * a lightweight data-version endpoint (~50 bytes) to decide if a full
+   * re-fetch is needed. Saves megabytes of Supabase egress per page refresh.
+   */
+  const loadDataCacheFirst = useCallback(async (targetCity, force = false) => {
+    if (!targetCity) return;
+
+    // 1. Hydrate UI from IndexedDB instantly (zero network cost)
+    const cachedPlayers = await getCachedItem(`data_players_${targetCity}`);
+    const cachedTeams = await getCachedItem(`data_teams_${targetCity}`);
+    const cachedHash = await getCachedItem(`data_hash_${targetCity}`);
+    const cachedTimestamp = await getCachedItem(`data_timestamp_${targetCity}`);
+
+    if (cachedPlayers && cachedTeams) {
+      setPlayers(cachedPlayers);
+      setTeams(cachedTeams);
+    }
+
+    let isDelta = false;
+    let finalPlayers = cachedPlayers || [];
+    let finalTeams = cachedTeams || [];
+
+    // 2. Check the lightweight version hash
+    if (!force && cachedHash) {
+      try {
+        const { hash: serverHash, timestamp: serverTimestamp } = await apiFetch(`/api/${targetCity}/data-version`);
+        if (serverHash === cachedHash) {
+          console.log('[Cache] Data unchanged — skipping full fetch');
+          return; // Cache is valid, nothing to re-fetch!
+        }
+        
+        console.log('[Cache] Data changed — analyzing delta');
+        
+        // Check for deletions by parsing counts from hash: "playerCount_sold_price_passed_teamCount"
+        const oldParts = cachedHash.split('_');
+        const newParts = serverHash.split('_');
+        const oldPlayerCount = parseInt(oldParts[0]);
+        const oldTeamCount = parseInt(oldParts[4]);
+        const newPlayerCount = parseInt(newParts[0]);
+        const newTeamCount = parseInt(newParts[4]);
+
+        if (newPlayerCount >= oldPlayerCount && newTeamCount >= oldTeamCount && cachedTimestamp) {
+          console.log('[Cache] No deletions detected — attempting delta fetch since', cachedTimestamp);
+          isDelta = true;
+        } else {
+          console.log('[Cache] Deletions detected — falling back to full fetch');
+        }
+      } catch (err) {
+        console.warn('[Cache] Version check failed, will re-fetch:', err.message);
+      }
+    }
+
+    // 3. Fetch data (either delta or full)
+    const [pFetch, tFetch] = await Promise.all([
+      fetchPlayersForCity(targetCity, isDelta ? cachedTimestamp : null),
+      fetchTeamsForCity(targetCity, isDelta ? cachedTimestamp : null),
+    ]);
+
+    if (isDelta) {
+      // Merge logic
+      const pMap = new Map(finalPlayers.map(p => [p.id, p]));
+      pFetch.forEach(p => pMap.set(p.id, p));
+      finalPlayers = Array.from(pMap.values());
+
+      const tMap = new Map(finalTeams.map(t => [t.id, t]));
+      tFetch.forEach(t => tMap.set(t.id, t));
+      finalTeams = Array.from(tMap.values());
+    } else {
+      finalPlayers = pFetch;
+      finalTeams = tFetch;
+    }
+
+    setPlayers(finalPlayers);
+    setTeams(finalTeams);
+
+    // 4. Persist to IndexedDB + save the new version hash and timestamp
+    try {
+      const { hash: newHash, timestamp: newTimestamp } = await apiFetch(`/api/${targetCity}/data-version`);
+      await Promise.all([
+        setCachedItem(`data_players_${targetCity}`, finalPlayers),
+        setCachedItem(`data_teams_${targetCity}`, finalTeams),
+        setCachedItem(`data_hash_${targetCity}`, newHash),
+        setCachedItem(`data_timestamp_${targetCity}`, newTimestamp),
+      ]);
+    } catch (e) {
+      console.warn('[Cache] Failed to persist:', e.message);
+    }
+  }, [fetchPlayersForCity, fetchTeamsForCity]);
+
   const refreshPlayers = useCallback(async () => {
     if (!city) return;
     const data = await fetchPlayersForCity(city);
     setPlayers(data);
+    // Update cache
+    await setCachedItem(`data_players_${city}`, data);
+    try {
+      const { hash, timestamp } = await apiFetch(`/api/${city}/data-version`);
+      await setCachedItem(`data_hash_${city}`, hash);
+      await setCachedItem(`data_timestamp_${city}`, timestamp);
+    } catch (e) { /* best effort */ }
   }, [city, fetchPlayersForCity]);
 
   const refreshTeams = useCallback(async () => {
     if (!city) return;
     const data = await fetchTeamsForCity(city);
     setTeams(data);
+    // Update cache
+    await setCachedItem(`data_teams_${city}`, data);
+    try {
+      const { hash, timestamp } = await apiFetch(`/api/${city}/data-version`);
+      await setCachedItem(`data_hash_${city}`, hash);
+      await setCachedItem(`data_timestamp_${city}`, timestamp);
+    } catch (e) { /* best effort */ }
   }, [city, fetchTeamsForCity]);
 
   // Fetch data when city or role changes (e.g. after login or page refresh)
   useEffect(() => {
     if (city && (role === 'admin' || role === 'guest')) {
-      fetchPlayersForCity(city).then(setPlayers);
-      fetchTeamsForCity(city).then(setTeams);
+      loadDataCacheFirst(city);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [city, role]);
-
-  // ---- Auto-refresh for guest mode ----
-  useEffect(() => {
-    if (role !== 'guest' || !city) return;
-    const jitter = Math.random() * 5000;
-    const interval = setInterval(() => {
-      refreshPlayers();
-      refreshTeams();
-    }, 20000 + jitter);
-    return () => clearInterval(interval);
-  }, [role, city, refreshPlayers, refreshTeams]);
 
   // ---- Auth actions ----
   // selectCity is used by the guest flow — also fetches data immediately
@@ -154,16 +250,11 @@ export const AppProvider = ({ children }) => {
     setSelectedGender('Female');
     setSelectedSkill('Beginner');
 
-    // Fetch data immediately using the new city (state update is async so we pass it directly)
+    // Fetch data immediately using the new city — force a full fetch since it's a new city
     if (selectedCity && (selectedRole === 'guest' || selectedRole === 'admin')) {
-      const [p, t] = await Promise.all([
-        fetchPlayersForCity(selectedCity),
-        fetchTeamsForCity(selectedCity),
-      ]);
-      setPlayers(p);
-      setTeams(t);
+      await loadDataCacheFirst(selectedCity, true);
     }
-  }, [fetchPlayersForCity, fetchTeamsForCity]);
+  }, [loadDataCacheFirst]);
 
   const selectRole = useCallback((selectedRole) => {
     setRole(selectedRole);
@@ -183,8 +274,8 @@ export const AppProvider = ({ children }) => {
     setRole(resp.role);
     setCity(resp.city);
     setUsername(resp.username);
-    localStorage.setItem('wbp_role',     resp.role);
-    localStorage.setItem('wbp_city',     resp.city);
+    localStorage.setItem('wbp_role', resp.role);
+    localStorage.setItem('wbp_city', resp.city);
     localStorage.setItem('wbp_username', resp.username);
     return resp;
   };
@@ -207,12 +298,19 @@ export const AppProvider = ({ children }) => {
   };
 
   // ---- Player CRUD ----
+  // Helper: invalidate cached hash so next loadDataCacheFirst re-fetches
+  const invalidateCache = useCallback(async () => {
+    if (!city) return;
+    await setCachedItem(`data_hash_${city}`, null);
+  }, [city]);
+
   const addPlayer = async (playerData) => {
     const newPlayer = await apiFetch(`/api/${city}/players`, {
       method: 'POST',
       body: JSON.stringify(playerData),
     });
     setPlayers(prev => [...prev, newPlayer]);
+    await invalidateCache();
     return newPlayer;
   };
 
@@ -221,12 +319,14 @@ export const AppProvider = ({ children }) => {
     formData.append('file', file);
     const response = await apiUpload(`/api/${city}/players/import`, formData);
     setPlayers(prev => [...prev, ...response.importedPlayers]);
+    await invalidateCache();
     return response;
   };
 
   const clearAllPlayers = async () => {
     await apiFetch(`/api/${city}/players`, { method: 'DELETE' });
     setPlayers([]);
+    await invalidateCache();
   };
 
   const updatePlayer = async (id, playerData) => {
@@ -235,6 +335,7 @@ export const AppProvider = ({ children }) => {
       body: JSON.stringify(playerData),
     });
     setPlayers(prev => prev.map(p => p.id === id ? updated : p));
+    await invalidateCache();
     return updated;
   };
 
@@ -255,6 +356,7 @@ export const AppProvider = ({ children }) => {
         purseRemaining: (t.purseRemaining || 0) + (removedPlayer?.soldPrice || removedPlayer?.basePrice || 0),
       };
     }));
+    await invalidateCache();
   };
 
   const uploadPlayerPhoto = async (playerId, photoFile) => {
@@ -262,6 +364,7 @@ export const AppProvider = ({ children }) => {
     formData.append('photo', photoFile);
     const updated = await apiUpload(`/api/${city}/players/${playerId}/upload-photo`, formData);
     setPlayers(prev => prev.map(p => Number(p.id) === Number(playerId) ? updated : p));
+    await invalidateCache();
     return updated;
   };
 
@@ -272,6 +375,7 @@ export const AppProvider = ({ children }) => {
       body: JSON.stringify(teamData),
     });
     setTeams(prev => [...prev, newTeam]);
+    await invalidateCache();
     return newTeam;
   };
 
@@ -281,6 +385,7 @@ export const AppProvider = ({ children }) => {
       body: JSON.stringify(teamData),
     });
     setTeams(prev => prev.map(t => t.id === id ? updated : t));
+    await invalidateCache();
     return updated;
   };
 
@@ -318,6 +423,7 @@ export const AppProvider = ({ children }) => {
       }
       throw err; // re-throw so TeamsPage can show the error toast
     }
+    await invalidateCache();
   };
 
 
@@ -347,6 +453,7 @@ export const AppProvider = ({ children }) => {
         ? { ...p, status: 'UNSOLD', soldPrice: null, soldTeamId: null, soldTeam: null }
         : p
     ));
+    await invalidateCache();
     return finalTeam;
   };
 
@@ -374,8 +481,8 @@ export const AppProvider = ({ children }) => {
     });
   }, [players, city, auctionSkillFilter, auctionGenderFilter]);
 
-  const auctionQueue  = getAuctionQueue();
-  const activePlayer  = auctionQueue[currentAuctionIndex] || null;
+  const auctionQueue = getAuctionQueue();
+  const activePlayer = auctionQueue[currentAuctionIndex] || null;
 
   // Safety: when the queue shrinks (e.g., after selling a player), adjust the
   // index so the next player in line is shown. When we're past the end of the
@@ -433,6 +540,7 @@ export const AppProvider = ({ children }) => {
         method: 'POST',
         body: JSON.stringify({ playerId: passedPlayerId }),
       });
+      await invalidateCache();
     } catch (err) {
       console.error('Pass failed:', err.message);
       // Revert optimistic update on failure
@@ -489,10 +597,11 @@ export const AppProvider = ({ children }) => {
       .then((updatedPlayer) => {
         // Sync with fresh database state on success
         setPlayers(prev => prev.map(p => p.id === soldPlayerId ? updatedPlayer : p));
+        invalidateCache();
       })
       .catch((err) => {
         console.error('Sell failed, reverting optimistic state:', err.message);
-        
+
         // Revert only the specific player status to UNSOLD
         setPlayers(prev => prev.map(p =>
           p.id === soldPlayerId

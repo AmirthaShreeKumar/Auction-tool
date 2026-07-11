@@ -22,10 +22,12 @@ public class TeamController {
     private final TeamService teamService;
     private final LogoGenerationService logoGenerationService;
 
-    /** GET /api/{city}/teams – all teams for this city */
+    /** GET /api/{city}/teams – all teams for this city (optionally since a timestamp) */
     @GetMapping
-    public ResponseEntity<List<TeamDTO>> listTeams(@PathVariable String city) {
-        return ResponseEntity.ok(teamService.getTeamsByCity(city));
+    public ResponseEntity<List<TeamDTO>> listTeams(
+            @PathVariable String city,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime since) {
+        return ResponseEntity.ok(teamService.getTeamsByCity(city, since));
     }
 
     /** GET /api/{city}/teams/{id} – single team with roster */

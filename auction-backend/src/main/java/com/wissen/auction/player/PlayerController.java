@@ -28,10 +28,12 @@ public class PlayerController {
 
     private final PlayerService playerService;
 
-    /** GET /api/{city}/players – list all players for this city */
+    /** GET /api/{city}/players – list all players for this city (optionally since a timestamp) */
     @GetMapping
-    public ResponseEntity<List<PlayerDTO>> listPlayers(@PathVariable String city) {
-        return ResponseEntity.ok(playerService.getPlayersByCity(city));
+    public ResponseEntity<List<PlayerDTO>> listPlayers(
+            @PathVariable String city,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime since) {
+        return ResponseEntity.ok(playerService.getPlayersByCity(city, since));
     }
 
     /** GET /api/{city}/players/{id} – single player (full DTO including photo) */

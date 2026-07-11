@@ -66,8 +66,6 @@ const StatisticsPage = () => {
     const fetchAllData = async () => {
       try {
         setLoadingBids(true);
-        if (refreshPlayers) await refreshPlayers();
-        if (refreshTeams) await refreshTeams();
         const data = await apiFetch(`/api/${city}/auction/bids`);
         setBidHistory(data || []);
       } catch (err) {
@@ -79,7 +77,7 @@ const StatisticsPage = () => {
     if (city) {
       fetchAllData();
     }
-  }, [city, refreshPlayers, refreshTeams]);
+  }, [city]);
 
   // Capitalize city
   const capitalize = (str) => {

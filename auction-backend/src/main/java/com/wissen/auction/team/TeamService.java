@@ -31,8 +31,16 @@ public class TeamService {
     // ---- READ ----
 
     @Transactional(readOnly = true)
-    public List<TeamDTO> getTeamsByCity(String city) {
-        List<TeamSlimView> teams = teamRepository.findByLocationIgnoreCaseExcludingLogo(city);
+    public List<TeamDTO> getTeamsByCity(String city, java.time.LocalDateTime since) {
+        List<TeamSlimView> teams;
+        if (since != null) {
+            teams = teamRepository.findByLocationIgnoreCaseAndUpdatedAtGreaterThanEqualExcludingLogo(city, since);
+        } else {
+            teams = teamRepository.findByLocationIgnoreCaseExcludingLogo(city);
+        }
+
+        if (teams.isEmpty()) return List.of();
+
         List<Object[]> rows = playerRepository.findSoldPlayersProjectionByLocation(city);
 
         java.util.Map<Long, List<PlayerDTO>> playersByTeamId = new java.util.HashMap<>();

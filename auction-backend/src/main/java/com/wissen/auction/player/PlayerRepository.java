@@ -23,6 +23,9 @@ public interface PlayerRepository extends JpaRepository<Player, Long> {
 
     List<PlayerSlimView> findSlimByLocationIgnoreCase(String location);
 
+    @EntityGraph(attributePaths = {"soldTeam", "stats"})
+    List<Player> findByLocationIgnoreCaseAndUpdatedAtGreaterThanEqual(String location, java.time.LocalDateTime updatedAt);
+
     List<Player> findByLocationIgnoreCaseAndStatus(String location, Player.PlayerStatus status);
 
     List<Player> findByLocationIgnoreCaseAndSkillLevel(String location, Player.SkillLevel skillLevel);
@@ -139,4 +142,20 @@ public interface PlayerRepository extends JpaRepository<Player, Long> {
         WHERE p.soldTeam.id = :teamId
         """)
     int bulkReleasePlayersByTeam(@Param("teamId") Long teamId);
+
+    /**
+     * Returns a compact fingerprint string (e.g. "120_15_45000") representing
+     * total player count, sold count, and total sold price for a city.
+     * Any data mutation changes at least one of these values.
+     */
+    @Query("""
+        SELECT CONCAT(
+            COUNT(p), '_',
+            SUM(CASE WHEN p.status = 'SOLD' THEN 1 ELSE 0 END), '_',
+            COALESCE(SUM(p.soldPrice), 0), '_',
+            SUM(CASE WHEN p.status = 'PASSED' THEN 1 ELSE 0 END)
+        )
+        FROM Player p WHERE LOWER(p.location) = LOWER(:city)
+        """)
+    String computeDataFingerprint(@Param("city") String city);
 }
