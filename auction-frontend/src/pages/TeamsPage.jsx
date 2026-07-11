@@ -606,7 +606,7 @@ const TeamsPage = () => {
                           overflow: 'hidden',
                           flexShrink: 0
                         }}>
-                          <PlayerPhoto playerId={p.id} playerName={p.fullName} size="36px" borderRadius="8px" />
+                          <PlayerPhoto playerId={p.id} playerName={p.fullName} imageUrlHash={p.imageUrlHash} size="36px" borderRadius="8px" />
                         </div>
 
                         <div style={{ flex: 1, minWidth: 0 }}>

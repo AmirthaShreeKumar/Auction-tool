@@ -77,6 +77,9 @@ public class Player {
     @Column(name = "image_url", columnDefinition = "TEXT")
     private String imageUrl;
 
+    @org.hibernate.annotations.Formula("LENGTH(image_url)")
+    private Integer imageUrlHash;
+
     @OneToOne(mappedBy = "player", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private PlayerStats stats;
 

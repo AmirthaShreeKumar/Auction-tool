@@ -24,6 +24,7 @@ public class PlayerDTO {
     private String yearsOfExperience;
     private String mobileNumber;
     private String imageUrl;
+    private String imageUrlHash;
     private Integer basePrice;
     private String status;       // UNSOLD | SOLD | PASSED
     private Integer soldPrice;
@@ -61,6 +62,7 @@ public class PlayerDTO {
                 .yearsOfExperience(p.getYearsOfExperience())
                 .mobileNumber(p.getMobileNumber())
                 .imageUrl(p.getImageUrl())
+                .imageUrlHash(p.getImageUrlHash() != null ? Integer.toHexString(p.getImageUrlHash()) : null)
                 .basePrice(p.getBasePrice())
                 .status(p.getStatus() != null ? p.getStatus().name() : "UNSOLD")
                 .soldPrice(p.getSoldPrice())
@@ -87,6 +89,7 @@ public class PlayerDTO {
                 .fullName(p.getFullName())
                 .gender(p.getGender() != null ? p.getGender().name() : null)
                 .skillLevel(p.getSkillLevel() != null ? p.getSkillLevel().name() : null)
+                .imageUrlHash(p.getImageUrlHash() != null ? Integer.toHexString(p.getImageUrlHash()) : null)
                 .basePrice(p.getBasePrice())
                 .status(p.getStatus() != null ? p.getStatus().name() : "UNSOLD")
                 .soldPrice(p.getSoldPrice())
@@ -142,6 +145,7 @@ public class PlayerDTO {
                 .yearsOfExperience(v.getYearsOfExperience())
                 .gender(v.getGender() != null ? v.getGender().name() : null)
                 .skillLevel(v.getSkillLevel() != null ? v.getSkillLevel().name() : null)
+                .imageUrlHash(v.getImageUrlHash() != null ? Integer.toHexString(v.getImageUrlHash()) : null)
                 .basePrice(v.getBasePrice())
                 .status(v.getStatus() != null ? v.getStatus().name() : "UNSOLD")
                 .soldPrice(v.getSoldPrice())

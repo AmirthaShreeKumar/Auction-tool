@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { apiFetch, apiUpload } from '../api/api';
+import { getCachedItem, setCachedItem } from '../utils/idb';
 
 const businessRules = {
   teamSizeLimit: 10,
@@ -74,7 +75,7 @@ export const AppProvider = ({ children }) => {
         await Promise.all(data.map(async (team) => {
           if (team.logoSvgHash || team.logoUrlHash) {
             const cacheKey = `logo_${team.id}_${team.logoSvgHash || 'none'}_${team.logoUrlHash || 'none'}`;
-            const cachedLogo = sessionStorage.getItem(cacheKey);
+            const cachedLogo = await getCachedItem(cacheKey);
             if (cachedLogo) {
               try {
                 const parsed = JSON.parse(cachedLogo);
@@ -90,7 +91,7 @@ export const AppProvider = ({ children }) => {
                 if (logoData.logoSvg || logoData.logoUrl) {
                   team.logoSvg = logoData.logoSvg;
                   team.logoUrl = logoData.logoUrl;
-                  sessionStorage.setItem(cacheKey, JSON.stringify({ logoSvg: logoData.logoSvg, logoUrl: logoData.logoUrl }));
+                  await setCachedItem(cacheKey, JSON.stringify({ logoSvg: logoData.logoSvg, logoUrl: logoData.logoUrl }));
                 }
               } catch (e) {
                 console.error('Failed to fetch logo for team', team.id);

@@ -2,6 +2,8 @@ import React, { useRef, useState, useEffect, useContext } from 'react';
 import { AppContext } from '../context/AppContext';
 import { apiFetch } from '../api/api';
 
+import { getCachedItem, setCachedItem } from '../utils/idb';
+
 /**
  * Lazy-loading player photo component.
  * 
@@ -13,11 +15,12 @@ import { apiFetch } from '../api/api';
  *   playerId     – the player's database ID
  *   playerName   – used as alt text and initials fallback
  *   imageUrl     - optional direct base64 image data (skips fetch if provided)
+ *   imageUrlHash - used for cache invalidation
  *   size         – CSS size string (default '40px')
  *   borderRadius – CSS border-radius (default '50%' for circle)
  *   style        – additional inline styles
  */
-const PlayerPhoto = ({ playerId, playerName, imageUrl: propImageUrl = null, size = '40px', borderRadius = '50%', style = {} }) => {
+const PlayerPhoto = ({ playerId, playerName, imageUrl: propImageUrl = null, imageUrlHash, size = '40px', borderRadius = '50%', style = {} }) => {
   const { city } = useContext(AppContext);
   const [imageUrl, setImageUrl] = useState(null);
   const [error, setError] = useState(false);
@@ -40,13 +43,25 @@ const PlayerPhoto = ({ playerId, playerName, imageUrl: propImageUrl = null, size
     if (!playerId || !city) return;
 
     const observer = new IntersectionObserver(
-      (entries) => {
+      async (entries) => {
         if (entries[0].isIntersecting) {
           observer.disconnect();
+
+          const cacheKey = `player_photo_${playerId}_${imageUrlHash || 'none'}`;
+          
+          if (imageUrlHash) {
+            const cached = await getCachedItem(cacheKey);
+            if (cached) {
+              setImageUrl(cached);
+              return;
+            }
+          }
+
           apiFetch(`/api/${city}/players/${playerId}/photo`)
             .then((data) => {
               if (data.imageUrl) {
                 setImageUrl(data.imageUrl);
+                setCachedItem(cacheKey, data.imageUrl);
               } else {
                 setError(true);
               }
@@ -59,7 +74,7 @@ const PlayerPhoto = ({ playerId, playerName, imageUrl: propImageUrl = null, size
 
     if (ref.current) observer.observe(ref.current);
     return () => observer.disconnect();
-  }, [playerId, city, propImageUrl]);
+  }, [playerId, city, propImageUrl, imageUrlHash]);
 
   const initials = playerName
     ? playerName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()

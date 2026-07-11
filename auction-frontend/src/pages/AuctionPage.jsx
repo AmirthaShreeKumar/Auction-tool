@@ -532,7 +532,7 @@ const AuctionPage = () => {
                   {activePlayer.imageUrl && !imgError ? (
                     <img src={activePlayer.imageUrl} alt={activePlayer.fullName} onError={() => setImgError(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
-                    <PlayerPhoto playerId={activePlayer.id} playerName={activePlayer.fullName} size="160px" borderRadius="14px" style={{ border: 'none', background: 'transparent' }} />
+                    <PlayerPhoto playerId={activePlayer.id} playerName={activePlayer.fullName} imageUrlHash={activePlayer.imageUrlHash} size="160px" borderRadius="14px" style={{ border: 'none', background: 'transparent' }} />
                   )}
                 </div>
 

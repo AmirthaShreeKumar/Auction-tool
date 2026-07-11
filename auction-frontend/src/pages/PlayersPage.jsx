@@ -635,7 +635,7 @@ const PlayersPage = () => {
                     border: '1px solid var(--border-color)',
                     flexShrink: 0
                   }}>
-                    <PlayerPhoto playerId={player.id} playerName={player.fullName} imageUrl={player.imageUrl} size="60px" borderRadius="12px" />
+                    <PlayerPhoto playerId={player.id} playerName={player.fullName} imageUrl={player.imageUrl} imageUrlHash={player.imageUrlHash} size="60px" borderRadius="12px" />
                   </div>
                   
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
@@ -1032,6 +1032,7 @@ const PlayersPage = () => {
                       playerId={editingPlayer.id}
                       playerName={editingPlayer.fullName}
                       imageUrl={editingPlayer.imageUrl}
+                      imageUrlHash={editingPlayer.imageUrlHash}
                       size="28px"
                       borderRadius="50%"
                     />
@@ -1159,6 +1160,7 @@ const PlayersPage = () => {
                 playerId={selectedPlayer.id}
                 playerName={selectedPlayer.fullName}
                 imageUrl={selectedPlayer.imageUrl}
+                imageUrlHash={selectedPlayer.imageUrlHash}
                 size="100px"
                 borderRadius="50%"
                 style={{ border: '2px solid var(--color-primary)' }}

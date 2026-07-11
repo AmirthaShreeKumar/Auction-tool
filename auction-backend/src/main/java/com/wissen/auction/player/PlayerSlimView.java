@@ -13,6 +13,7 @@ public interface PlayerSlimView {
     Integer getBasePrice();
     Player.PlayerStatus getStatus();
     Integer getSoldPrice();
+    Integer getImageUrlHash();
     TeamView getSoldTeam();
     PlayerStatsView getStats();
 
