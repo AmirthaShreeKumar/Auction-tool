@@ -37,6 +37,14 @@ public class DataInitializer implements CommandLineRunner {
         // have already been applied to the database and are intentionally removed here.
         // Running DDL on every startup locks tables and times out on Supabase.
         // Use Flyway or a one-off SQL script for any future schema changes.
+        
+        try (java.sql.Connection conn = dataSource.getConnection();
+             java.sql.Statement stmt = conn.createStatement()) {
+            stmt.execute("ALTER TABLE players DROP CONSTRAINT IF EXISTS uk_logknjqt8p9wpv4ouuiu7v6bp");
+            log.info("Dropped stale unique constraint 'uk_logknjqt8p9wpv4ouuiu7v6bp' on wissen_id if it existed.");
+        } catch (Exception e) {
+            log.warn("Failed to drop stale constraint: {}", e.getMessage());
+        }
 
         if (userRepository.count() == 0) {
             seedUsers();
@@ -176,9 +184,6 @@ public class DataInitializer implements CommandLineRunner {
                 .themeColor(themeColor)
                 .location(city)
                 .purseRemaining(100000)
-                .totalPlayers(0)
-                .femalePlayers(0)
-                .beginnerPlayers(0)
                 .build());
     }
 

@@ -49,7 +49,7 @@ public class AuctionService {
     @Cacheable(value = "auctionState", key = "#city")
     @Transactional(readOnly = true)
     public AuctionStateDTO getAuctionState(String city) {
-        List<Player> queue = playerRepository.findAuctionQueue(city);
+        List<AuctionQueueView> queue = playerRepository.findAuctionQueueSlim(city);
         List<PlayerDTO> queueDTOs = queue.stream().map(PlayerDTO::from).collect(Collectors.toList());
 
         PlayerDTO activePlayer = queueDTOs.isEmpty() ? null : queueDTOs.get(0);

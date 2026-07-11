@@ -43,7 +43,7 @@ const TeamsPage = () => {
   }, [toastMessage]);
 
   // Filter teams by active city
-  const cityTeams = teams.filter(t => t.location.toLowerCase() === city.toLowerCase());
+  const cityTeams = teams.filter(t => t.location?.toLowerCase() === city?.toLowerCase());
 
   const handleSubmit = async (e) => {
     e.preventDefault();

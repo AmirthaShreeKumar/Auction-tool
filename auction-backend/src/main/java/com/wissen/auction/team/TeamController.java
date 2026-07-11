@@ -35,6 +35,13 @@ public class TeamController {
         return ResponseEntity.ok(teamService.getTeamById(id));
     }
 
+    /** GET /api/{city}/teams/{id}/logo – returns logo on-demand */
+    @GetMapping("/{id}/logo")
+    public ResponseEntity<java.util.Map<String, String>> getTeamLogo(@PathVariable String city,
+                                                                      @PathVariable Long id) {
+        return ResponseEntity.ok(teamService.getTeamLogo(id));
+    }
+
     /** POST /api/{city}/teams – create team (Admin only) */
     @PostMapping
     public ResponseEntity<TeamDTO> createTeam(@PathVariable String city,

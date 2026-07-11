@@ -88,8 +88,8 @@ const StatisticsPage = () => {
   };
 
   // Filter based on city
-  const cityPlayers = players.filter(p => p.location.toLowerCase() === city.toLowerCase());
-  const cityTeams = teams.filter(t => t.location.toLowerCase() === city.toLowerCase());
+  const cityPlayers = players.filter(p => p.location?.toLowerCase() === city?.toLowerCase());
+  const cityTeams = teams.filter(t => t.location?.toLowerCase() === city?.toLowerCase());
 
   // Statistics Calculations
   const totalPlayers = cityPlayers.length;

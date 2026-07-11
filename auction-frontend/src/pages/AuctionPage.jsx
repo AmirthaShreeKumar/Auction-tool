@@ -122,7 +122,7 @@ const AuctionPage = () => {
 
 
   // Filter teams by city
-  const cityTeams = teams.filter(t => t.location.toLowerCase() === city.toLowerCase());
+  const cityTeams = teams.filter(t => t.location?.toLowerCase() === city?.toLowerCase());
 
   // Count of skipped/passed players for the current city matching the active filters
   const passedCount = players ? players.filter(p =>

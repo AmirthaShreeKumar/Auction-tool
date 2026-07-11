@@ -42,9 +42,9 @@ public class PlayerService {
 
     @Transactional(readOnly = true)
     public List<PlayerDTO> getPlayersByCity(String city) {
-        return playerRepository.findByLocationIgnoreCase(city)
+        return playerRepository.findSlimByLocationIgnoreCase(city)
                 .stream()
-                .map(PlayerDTO::fromSlim)   // excludes imageUrl — keeps response small
+                .map(PlayerDTO::from)   // ultra slim response
                 .collect(Collectors.toList());
     }
 
@@ -56,7 +56,7 @@ public class PlayerService {
 
     @Transactional(readOnly = true)
     public List<PlayerDTO> getAuctionQueue(String city) {
-        return playerRepository.findAuctionQueue(city)
+        return playerRepository.findAuctionQueueSlim(city)
                 .stream()
                 .map(PlayerDTO::from)
                 .collect(Collectors.toList());
@@ -418,7 +418,7 @@ public class PlayerService {
                     skippedCount++;
                     continue;
                 }
-                java.util.Optional<Player> existingPlayerOpt = playerRepository.findByWissenIdAndLocationIgnoreCase(wissenId, city);
+                java.util.Optional<Player> existingPlayerOpt = playerRepository.findByWissenId(wissenId);
                 if (existingPlayerOpt.isPresent()) {
                     Player existing = existingPlayerOpt.get();
                     String msg = String.format("Row %d: ID '%s' exists in DB (Player: '%s', City: '%s')",

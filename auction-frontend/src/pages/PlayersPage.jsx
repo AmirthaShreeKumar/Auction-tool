@@ -120,7 +120,7 @@ const PlayersPage = () => {
   const photoInputRef = useRef(null);
 
   // Filter players by City
-  const cityPlayers = players.filter(p => p.location.toLowerCase() === city.toLowerCase());
+  const cityPlayers = players.filter(p => p.location?.toLowerCase() === city?.toLowerCase());
 
   // Filter players by Skill, Gender, and Search query
   const filteredPlayers = cityPlayers.filter(p => {
@@ -422,17 +422,17 @@ const PlayersPage = () => {
     }
 
     setEditingPlayer(fullPlayer);
-    setWissenId(fullPlayer.wissenId);
-    setFullName(fullPlayer.fullName);
-    setEmail(fullPlayer.email);
+    setWissenId(fullPlayer.wissenId || '');
+    setFullName(fullPlayer.fullName || '');
+    setEmail(fullPlayer.email || '');
     setMobileNumber(fullPlayer.mobileNumber || '');
     // If existing image is a data URI (uploaded), show blank URL field; image is already stored
     setImageUrl(fullPlayer.imageUrl && !fullPlayer.imageUrl.startsWith('data:') ? fullPlayer.imageUrl : '');
     clearPhoto();
-    setGender(fullPlayer.gender);
-    setSkillLevel(fullPlayer.skillLevel);
-    setYearsOfExperience(fullPlayer.yearsOfExperience);
-    setBasePrice(fullPlayer.basePrice);
+    setGender(fullPlayer.gender || 'Male');
+    setSkillLevel(fullPlayer.skillLevel || 'Beginner');
+    setYearsOfExperience(fullPlayer.yearsOfExperience || '');
+    setBasePrice(fullPlayer.basePrice || 2000);
     setMatchesPlayed(fullPlayer.stats ? fullPlayer.stats.matchesPlayed : '');
     setMatchesWon(fullPlayer.stats ? fullPlayer.stats.matchesWon : '');
     setMatchesLost(fullPlayer.stats ? fullPlayer.stats.matchesLost : '');

@@ -32,7 +32,7 @@ public class TeamService {
 
     @Transactional(readOnly = true)
     public List<TeamDTO> getTeamsByCity(String city) {
-        List<Team> teams = teamRepository.findByLocationIgnoreCase(city);
+        List<TeamSlimView> teams = teamRepository.findByLocationIgnoreCaseExcludingLogo(city);
         List<Object[]> rows = playerRepository.findSoldPlayersProjectionByLocation(city);
 
         java.util.Map<Long, List<PlayerDTO>> playersByTeamId = new java.util.HashMap<>();
@@ -59,7 +59,7 @@ public class TeamService {
         return teams.stream()
                 .map(t -> {
                     List<PlayerDTO> teamPlayers = playersByTeamId.getOrDefault(t.getId(), List.of());
-                    return TeamDTO.from(t, teamPlayers);
+                    return TeamDTO.fromSlimView(t, teamPlayers);
                 })
                 .collect(Collectors.toList());
     }
@@ -67,6 +67,15 @@ public class TeamService {
     @Transactional(readOnly = true)
     public TeamDTO getTeamById(Long id) {
         return TeamDTO.from(findOrThrow(id));
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.Map<String, String> getTeamLogo(Long id) {
+        Team team = findOrThrow(id);
+        java.util.Map<String, String> result = new java.util.HashMap<>();
+        result.put("logoSvg", team.getLogoSvg());
+        result.put("logoUrl", team.getLogoUrl());
+        return result;
     }
 
     // ---- CREATE ----
@@ -85,9 +94,6 @@ public class TeamService {
                 .logoSvg(req.getLogoSvg())
                 .location(city)
                 .purseRemaining(PURSE_LIMIT)
-                .totalPlayers(0)
-                .femalePlayers(0)
-                .beginnerPlayers(0)
                 .build();
 
         return TeamDTO.from(teamRepository.save(team));

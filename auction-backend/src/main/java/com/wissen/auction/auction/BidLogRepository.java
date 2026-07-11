@@ -25,6 +25,7 @@ public interface BidLogRepository extends JpaRepository<BidLog, Long> {
     List<BidLog> findTop5ByPlayer(@Param("player") Player player, Pageable pageable);
 
     /** All bids for a given location */
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"player"})
     List<BidLog> findByLocationIgnoreCaseOrderByCreatedAtDesc(String location);
 
     /** Delete all bids associated with a player */

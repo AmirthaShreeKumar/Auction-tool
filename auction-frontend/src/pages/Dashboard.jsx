@@ -31,8 +31,8 @@ const Dashboard = () => {
   };
 
   // Filter lists by selected city
-  const cityPlayers = players.filter(p => p.location.toLowerCase() === city.toLowerCase());
-  const cityTeams = teams.filter(t => t.location.toLowerCase() === city.toLowerCase());
+  const cityPlayers = players.filter(p => p.location?.toLowerCase() === city?.toLowerCase());
+  const cityTeams = teams.filter(t => t.location?.toLowerCase() === city?.toLowerCase());
 
   // Calculations
   const totalPlayers = cityPlayers.length;

@@ -70,6 +70,35 @@ export const AppProvider = ({ children }) => {
     if (!targetCity) return [];
     try {
       const data = await apiFetch(`/api/${targetCity}/teams`);
+      if (Array.isArray(data)) {
+        await Promise.all(data.map(async (team) => {
+          if (team.logoSvgHash || team.logoUrlHash) {
+            const cacheKey = `logo_${team.id}_${team.logoSvgHash || 'none'}_${team.logoUrlHash || 'none'}`;
+            const cachedLogo = sessionStorage.getItem(cacheKey);
+            if (cachedLogo) {
+              try {
+                const parsed = JSON.parse(cachedLogo);
+                team.logoSvg = parsed.logoSvg;
+                team.logoUrl = parsed.logoUrl;
+              } catch (e) {
+                // Handle legacy cache strings
+                team.logoSvg = cachedLogo;
+              }
+            } else {
+              try {
+                const logoData = await apiFetch(`/api/${targetCity}/teams/${team.id}/logo`);
+                if (logoData.logoSvg || logoData.logoUrl) {
+                  team.logoSvg = logoData.logoSvg;
+                  team.logoUrl = logoData.logoUrl;
+                  sessionStorage.setItem(cacheKey, JSON.stringify({ logoSvg: logoData.logoSvg, logoUrl: logoData.logoUrl }));
+                }
+              } catch (e) {
+                console.error('Failed to fetch logo for team', team.id);
+              }
+            }
+          }
+        }));
+      }
       return Array.isArray(data) ? data : [];
     } catch (err) {
       console.error('Failed to load teams:', err.message);
@@ -105,7 +134,7 @@ export const AppProvider = ({ children }) => {
     const interval = setInterval(() => {
       refreshPlayers();
       refreshTeams();
-    }, 10000 + jitter);
+    }, 20000 + jitter);
     return () => clearInterval(interval);
   }, [role, city, refreshPlayers, refreshTeams]);
 

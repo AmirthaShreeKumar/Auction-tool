@@ -46,19 +46,6 @@ public class Team {
     @Builder.Default
     private Integer purseRemaining = 100000;
 
-    /** Computed counters – updated on every sale */
-    @Column(name = "total_players")
-    @Builder.Default
-    private Integer totalPlayers = 0;
-
-    @Column(name = "female_players")
-    @Builder.Default
-    private Integer femalePlayers = 0;
-
-    @Column(name = "beginner_players")
-    @Builder.Default
-    private Integer beginnerPlayers = 0;
-
     @Column(name = "logo_url", columnDefinition = "TEXT")
     private String logoUrl;
 
@@ -92,9 +79,4 @@ public class Team {
         return this.purseRemaining;
     }
 
-    @PrePersist
-    @PreUpdate
-    public void syncPurseRemaining() {
-        this.purseRemaining = getPurseRemaining();
-    }
 }

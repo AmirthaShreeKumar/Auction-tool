@@ -21,11 +21,15 @@ public interface PlayerRepository extends JpaRepository<Player, Long> {
     @EntityGraph(attributePaths = {"soldTeam", "stats"})
     List<Player> findByLocationIgnoreCase(String location);
 
+    List<PlayerSlimView> findSlimByLocationIgnoreCase(String location);
+
     List<Player> findByLocationIgnoreCaseAndStatus(String location, Player.PlayerStatus status);
 
     List<Player> findByLocationIgnoreCaseAndSkillLevel(String location, Player.SkillLevel skillLevel);
 
     Optional<Player> findByWissenIdAndLocationIgnoreCase(String wissenId, String location);
+
+    Optional<Player> findByWissenId(String wissenId);
 
     boolean existsByWissenIdAndLocationIgnoreCase(String wissenId, String location);
 
@@ -45,6 +49,17 @@ public interface PlayerRepository extends JpaRepository<Player, Long> {
           p.fullName ASC
         """)
     List<Player> findAuctionQueue(@Param("location") String location);
+
+    @Query("""
+        SELECT p FROM Player p
+        WHERE LOWER(p.location) = LOWER(:location)
+          AND p.status = 'UNSOLD'
+        ORDER BY
+          CASE p.skillLevel WHEN 'Beginner' THEN 1 WHEN 'Intermediate' THEN 2 ELSE 3 END ASC,
+          CASE p.gender    WHEN 'Female'   THEN 1 ELSE 2 END ASC,
+          p.fullName ASC
+        """)
+    List<AuctionQueueView> findAuctionQueueSlim(@Param("location") String location);
 
     // ---- Bulk UPDATE for re-auction (single SQL round-trip) ----
 
