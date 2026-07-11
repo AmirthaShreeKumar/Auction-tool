@@ -15,6 +15,7 @@ export async function apiFetch(path, options = {}) {
     ...options,
     headers,
     credentials: 'include', // sends the HttpOnly wbpl_jwt cookie
+    cache: 'no-store', // prevents browser caching of GET requests to ensure fresh data
   });
 
   if (!response.ok) {

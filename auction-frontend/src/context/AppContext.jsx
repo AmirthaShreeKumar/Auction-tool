@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { apiFetch, apiUpload } from '../api/api';
-import { getCachedItem, setCachedItem } from '../utils/idb';
+import { getCachedItem, setCachedItem, clearCache } from '../utils/idb';
 
 const businessRules = {
   teamSizeLimit: 10,
@@ -270,6 +270,8 @@ export const AppProvider = ({ children }) => {
       method: 'POST',
       body: JSON.stringify({ username: usernameInput, password }),
     });
+    // Clear cache on login so it fetches fresh data each time
+    await clearCache();
     // Setting city and role will trigger the useEffect to fetch players/teams
     setRole(resp.role);
     setCity(resp.city);
@@ -287,6 +289,10 @@ export const AppProvider = ({ children }) => {
     } catch {
       // Proceed even if the logout request fails
     }
+    
+    // Remove stored data on exit
+    await clearCache();
+
     setRole('');
     setCity('');
     setUsername('');

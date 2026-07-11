@@ -58,3 +58,21 @@ export const setCachedItem = async (key, value) => {
     console.error('IDB set failed', e);
   }
 };
+
+/**
+ * Clear the entire cache store.
+ */
+export const clearCache = async () => {
+  try {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      const request = store.clear();
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  } catch (e) {
+    console.error('IDB clear failed', e);
+  }
+};
