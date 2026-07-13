@@ -818,7 +818,7 @@ const AuctionPage = () => {
                     const isPurseWarning = t.purseRemaining > 15000 && t.purseRemaining <= 30000;
 
                     const purseK = t.purseRemaining >= 1000
-                      ? `${Math.round(t.purseRemaining / 1000)}K`
+                      ? `${Number((t.purseRemaining / 1000).toFixed(2))}K`
                       : t.purseRemaining.toString();
 
                     return (
