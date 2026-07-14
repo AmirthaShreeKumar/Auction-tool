@@ -41,7 +41,7 @@ public class TeamDTO {
         int dynamicFemale = (int) playerDTOs.stream().filter(p -> "Female".equalsIgnoreCase(p.getGender())).count();
         int dynamicBeginner = (int) playerDTOs.stream().filter(p -> "Beginner".equalsIgnoreCase(p.getSkillLevel())).count();
         int spent = playerDTOs.stream().mapToInt(p -> p.getSoldPrice() != null ? p.getSoldPrice() : 0).sum();
-        int dynamicPurse = 100000 - spent;
+        int dynamicPurse = 120000 - spent;
 
         return TeamDTO.builder()
                 .id(t.getId())
@@ -77,7 +77,7 @@ public class TeamDTO {
         int dynamicFemale = (int) playerDTOs.stream().filter(p -> "Female".equalsIgnoreCase(p.getGender())).count();
         int dynamicBeginner = (int) playerDTOs.stream().filter(p -> "Beginner".equalsIgnoreCase(p.getSkillLevel())).count();
         int spent = playerDTOs.stream().mapToInt(p -> p.getSoldPrice() != null ? p.getSoldPrice() : 0).sum();
-        int dynamicPurse = 100000 - spent;
+        int dynamicPurse = 120000 - spent;
 
         return TeamDTO.builder()
                 .id(t.getId())

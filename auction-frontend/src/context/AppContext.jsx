@@ -3,10 +3,10 @@ import { apiFetch, apiUpload } from '../api/api';
 import { getCachedItem, setCachedItem, clearCache } from '../utils/idb';
 
 const businessRules = {
-  teamSizeLimit: 10,
+  teamSizeLimit: 12,
   minBeginners: 2,
   minFemales: 2,
-  purseLimit: 100000,
+  purseLimit: 120000,
   bidIncrement: 500,
 };
 

@@ -183,7 +183,7 @@ public class DataInitializer implements CommandLineRunner {
                 .ownerName(owner)
                 .themeColor(themeColor)
                 .location(city)
-                .purseRemaining(100000)
+                .purseRemaining(120000)
                 .build());
     }
 

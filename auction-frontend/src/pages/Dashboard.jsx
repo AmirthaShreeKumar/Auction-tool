@@ -240,7 +240,7 @@ const Dashboard = () => {
                   <span style={{ color: 'var(--color-primary)' }}>{businessRules.teamSizeLimit} Players</span>
                 </div>
                 <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-                  A franchise cannot purchase more than 10 players total. Roster must lock once full.
+                  A franchise cannot purchase more than 12 players total. Roster must lock once full.
                 </p>
               </div>
 

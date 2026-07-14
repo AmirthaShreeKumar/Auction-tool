@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class TeamService {
 
-    private static final int PURSE_LIMIT = 100000;
+    private static final int PURSE_LIMIT = 120000;
 
     private final TeamRepository teamRepository;
     private final PlayerRepository playerRepository;

@@ -38,7 +38,7 @@ public class TeamPurseSync implements CommandLineRunner {
                     .mapToInt(p -> p.getSoldPrice() != null ? p.getSoldPrice() : 0)
                     .sum();
             
-            Integer actualPurseRemaining = 100000 - spent;
+            Integer actualPurseRemaining = 120000 - spent;
             
             // Check if DB column is out-of-sync
             if (!actualPurseRemaining.equals(team.getRawPurseRemaining())) {

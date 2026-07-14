@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AuctionService {
 
-    private static final int TEAM_SIZE_LIMIT  = 10;
+    private static final int TEAM_SIZE_LIMIT  = 12;
     private static final int BID_INCREMENT_500 = 500;
     private static final int BID_INCREMENT_1000 = 1000;
     private static final int MAX_BID_HISTORY   = 5;

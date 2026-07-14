@@ -484,7 +484,7 @@ public class PlayerService {
             if (team.getPlayers() != null) {
                 team.getPlayers().clear();
             }
-            team.setPurseRemaining(100000);
+            team.setPurseRemaining(120000);
             teamRepository.save(team);
         }
         

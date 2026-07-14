@@ -809,7 +809,7 @@ const AuctionPage = () => {
                     const beginnerCount = t.beginnerPlayers || 0;
                     const minFemales = businessRules.minFemales || 2;
                     const minBeginners = businessRules.minBeginners || 2;
-                    const maxPlayers = businessRules.teamSizeLimit || 10;
+                    const maxPlayers = businessRules.teamSizeLimit || 12;
 
                     const requiresFemales = femaleCount < minFemales;
                     const requiresBeginners = beginnerCount < minBeginners;
@@ -909,7 +909,7 @@ const AuctionPage = () => {
 
                 // --- Compliance-aware eligibility ---
                 // After buying this player, check if remaining slots can still satisfy min requirements
-                const maxPlayers = businessRules.teamSizeLimit || 10;
+                const maxPlayers = businessRules.teamSizeLimit || 12;
                 const minFemales = businessRules.minFemales || 2;
                 const minBeginners = businessRules.minBeginners || 2;
 

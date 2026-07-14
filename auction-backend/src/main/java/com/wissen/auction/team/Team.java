@@ -44,7 +44,7 @@ public class Team {
     /** Available auction budget */
     @Column(name = "purse_remaining", nullable = false)
     @Builder.Default
-    private Integer purseRemaining = 100000;
+    private Integer purseRemaining = 120000;
 
     @Column(name = "logo_url", columnDefinition = "TEXT")
     private String logoUrl;
@@ -73,7 +73,7 @@ public class Team {
                     .filter(p -> p.getStatus() == Player.PlayerStatus.SOLD)
                     .mapToInt(p -> p.getSoldPrice() != null ? p.getSoldPrice() : 0)
                     .sum();
-            return 100000 - spent;
+            return 120000 - spent;
         } catch (Exception e) {
             return this.purseRemaining;
         }
